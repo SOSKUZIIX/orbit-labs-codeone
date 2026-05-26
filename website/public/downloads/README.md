@@ -15,16 +15,17 @@ serves them from this folder. Production can serve them from object storage or
 GitHub Releases by setting `NEXT_PUBLIC_DOWNLOAD_BASE_URL` to a URL such as:
 
 ```
-https://github.com/orbit-labs/codeone/releases/download/v0.1.0-beta.0
+https://github.com/SOSKUZIIX/orbit-labs-codeone/releases/download/v0.1.0-beta.0
 ```
 
 Large installers may exceed static upload limits on some hosts, including
 Vercel Hobby projects, so use an external download host when needed.
 
-For production, prefer:
+For production beta releases, prefer a pinned tag because GitHub's `latest`
+endpoint can ignore prereleases:
 
 ```
-NEXT_PUBLIC_DOWNLOAD_BASE_URL=https://github.com/orbit-labs/codeone/releases/latest/download
+NEXT_PUBLIC_DOWNLOAD_BASE_URL=https://github.com/SOSKUZIIX/orbit-labs-codeone/releases/download/v0.1.0-beta.0
 ```
 
 ## Release workflow

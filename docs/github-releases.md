@@ -36,16 +36,18 @@ names, then publishes:
 
 ## Website Downloads
 
-Set this environment variable in the website deployment:
+Set this environment variable in the website deployment while shipping beta
+prereleases:
 
 ```sh
-NEXT_PUBLIC_DOWNLOAD_BASE_URL=https://github.com/orbit-labs/codeone/releases/latest/download
+NEXT_PUBLIC_DOWNLOAD_BASE_URL=https://github.com/SOSKUZIIX/orbit-labs-codeone/releases/download/v0.1.0-beta.0
 ```
 
-For a pinned version, use:
+GitHub's `/releases/latest` endpoint can ignore prereleases. Use it only after
+publishing a stable non-prerelease:
 
 ```sh
-NEXT_PUBLIC_DOWNLOAD_BASE_URL=https://github.com/orbit-labs/codeone/releases/download/v0.1.0-beta.1
+NEXT_PUBLIC_DOWNLOAD_BASE_URL=https://github.com/SOSKUZIIX/orbit-labs-codeone/releases/latest/download
 ```
 
 The app update badge reads `https://codeone.orbitlabs.dev/latest.json`. When
@@ -57,7 +59,7 @@ badge and the changelog.
 This project is configured for the GitHub repository:
 
 ```sh
-https://github.com/orbit-labs/codeone.git
+https://github.com/SOSKUZIIX/orbit-labs-codeone.git
 ```
 
 If the repository does not exist yet, create it on GitHub, then push:
