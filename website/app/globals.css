@@ -1,0 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-ink-950 text-white antialiased;
+    font-feature-settings: 'ss01', 'cv11', 'cv02', 'cv03';
+    letter-spacing: -0.011em;
+  }
+  body {
+    @apply bg-ink-950 text-white;
+  }
+  ::selection {
+    background: rgba(255, 255, 255, 0.18);
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.025em;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-gradient {
+    background: linear-gradient(
+      180deg,
+      #ffffff 0%,
+      rgba(255, 255, 255, 0.78) 60%,
+      rgba(255, 255, 255, 0.55) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+  .hero-glow {
+    background:
+      radial-gradient(40% 60% at 50% -10%, rgba(200, 215, 255, 0.14) 0%, transparent 65%),
+      radial-gradient(55% 50% at 50% 25%, rgba(140, 160, 220, 0.08) 0%, transparent 75%);
+  }
+  .ring-soft {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      0 30px 80px -30px rgba(0, 0, 0, 0.6);
+  }
+  .fade-up {
+    animation: fade-up 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Slow drifting aurora behind the hero */
+  .aurora {
+    position: absolute;
+    inset: -20% -10% auto -10%;
+    height: 80%;
+    filter: blur(80px);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  .aurora::before,
+  .aurora::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(40% 50% at 20% 30%, rgba(120, 160, 255, 0.22) 0%, transparent 60%),
+      radial-gradient(35% 45% at 70% 40%, rgba(220, 170, 255, 0.18) 0%, transparent 60%),
+      radial-gradient(30% 40% at 50% 70%, rgba(110, 230, 220, 0.14) 0%, transparent 60%);
+    animation: aurora-drift 22s ease-in-out infinite alternate;
+  }
+  .aurora::after {
+    background:
+      radial-gradient(35% 40% at 80% 20%, rgba(180, 200, 255, 0.18) 0%, transparent 60%),
+      radial-gradient(30% 35% at 30% 70%, rgba(255, 180, 220, 0.14) 0%, transparent 60%);
+    animation-duration: 28s;
+    animation-direction: alternate-reverse;
+  }
+  @keyframes aurora-drift {
+    0% {
+      transform: translate3d(-3%, -2%, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(3%, 2%, 0) scale(1.08);
+    }
+    100% {
+      transform: translate3d(-2%, 3%, 0) scale(1);
+    }
+  }
+
+  /* Soft film-grain noise overlay */
+  .noise {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    opacity: 0.6;
+    mix-blend-mode: overlay;
+  }
+
+  /* Rotating orbit rings */
+  .orbit-ring {
+    position: absolute;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 9999px;
+    transform-origin: center;
+  }
+  .orbit-spin-slow {
+    animation: orbit-spin 60s linear infinite;
+  }
+  .orbit-spin-rev {
+    animation: orbit-spin 80s linear infinite reverse;
+  }
+  @keyframes orbit-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .orbit-ring .satellite {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+    top: -3px;
+    left: 50%;
+  }
+
+  /* Falling streaks (rare twinkles) */
+  .streak {
+    position: absolute;
+    width: 1px;
+    height: 80px;
+    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    animation: streak-fall 6s linear infinite;
+    opacity: 0;
+  }
+  @keyframes streak-fall {
+    0%, 60%, 100% { opacity: 0; transform: translateY(-100px); }
+    65%, 95% { opacity: 1; }
+    100% { transform: translateY(120vh); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .aurora::before,
+    .aurora::after,
+    .orbit-spin-slow,
+    .orbit-spin-rev,
+    .streak {
+      animation: none !important;
+    }
+  }
+}

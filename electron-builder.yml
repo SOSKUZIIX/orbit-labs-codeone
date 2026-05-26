@@ -1,0 +1,38 @@
+appId: com.orbitlabs.codeone
+productName: CodeOne by Orbit Labs
+copyright: Copyright © 2026 Orbit Labs
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+  - "!**/.DS_Store"
+asarUnpack:
+  - resources/**
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  category: public.app-category.developer-tools
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+linux:
+  target:
+    - AppImage
+  category: Development

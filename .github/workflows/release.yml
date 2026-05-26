@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, for example 0.1.0-beta.1'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    name: Build macOS installers
+    runs-on: macos-13
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      ORBITONE_OPENAI_KEY: ${{ secrets.ORBITONE_OPENAI_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run package:mac
+      - run: node scripts/prepare-release-assets.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeone-mac-installers
+          path: |
+            release-binaries/CodeOne-mac.dmg
+            release-binaries/CodeOne-mac-intel.dmg
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      ORBITONE_OPENAI_KEY: ${{ secrets.ORBITONE_OPENAI_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run package:win
+      - run: node scripts/prepare-release-assets.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeone-windows-installer
+          path: release-binaries/CodeOne-win.exe
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs:
+      - build-mac
+      - build-windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-binaries
+          merge-multiple: true
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: CodeOne ${{ steps.release.outputs.tag }}
+          draft: false
+          prerelease: ${{ contains(steps.release.outputs.tag, 'beta') || contains(steps.release.outputs.tag, 'alpha') || contains(steps.release.outputs.tag, 'rc') }}
+          generate_release_notes: true
+          files: |
+            release-binaries/CodeOne-mac.dmg
+            release-binaries/CodeOne-mac-intel.dmg
+            release-binaries/CodeOne-win.exe
