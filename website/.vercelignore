@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+.vercel
+.DS_Store
+*.log
+public/downloads/*.dmg
+public/downloads/*.exe
+public/downloads/*.blockmap
