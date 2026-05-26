@@ -68,10 +68,9 @@ jobs:
           path: release-binaries/CodeOne-win.exe
           if-no-files-found: error
 
-  publish:
-    name: Publish GitHub Release
+  publish-windows:
+    name: Publish Windows release asset
     needs:
-      - build-mac
       - build-windows
     runs-on: ubuntu-latest
     steps:
@@ -97,7 +96,36 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.release.outputs.tag, 'beta') || contains(steps.release.outputs.tag, 'alpha') || contains(steps.release.outputs.tag, 'rc') }}
           generate_release_notes: true
+          files: release-binaries/CodeOne-win.exe
+
+  publish-mac:
+    name: Publish macOS release assets
+    needs:
+      - build-mac
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-binaries
+          merge-multiple: true
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish macOS assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: CodeOne ${{ steps.release.outputs.tag }}
+          draft: false
+          prerelease: ${{ contains(steps.release.outputs.tag, 'beta') || contains(steps.release.outputs.tag, 'alpha') || contains(steps.release.outputs.tag, 'rc') }}
+          generate_release_notes: true
           files: |
             release-binaries/CodeOne-mac.dmg
             release-binaries/CodeOne-mac-intel.dmg
-            release-binaries/CodeOne-win.exe
