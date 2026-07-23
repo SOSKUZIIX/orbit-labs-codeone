@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react'
-import type { AppSettings, LicenseStatus, ProviderId } from '@shared/types'
+import type {
+  AppSettings,
+  LicenseStatus,
+  OrbitPullProgress,
+  OrbitStatus,
+  ProviderId
+} from '@shared/types'
 import { PROVIDERS, CLOUD_PROVIDER_IDS } from '@shared/providers'
 import { getProfile, updateProfile, type Profile } from '../lib/profile'
+
+/** "qwen2.5-coder:7b" -> "7B" for display. */
+function tierLabel(tag: string): string {
+  const m = tag.match(/:(\d+(?:\.\d+)?b)$/i)
+  return m ? m[1].toUpperCase() : tag
+}
 
 interface Props {
   open: boolean
@@ -43,6 +55,9 @@ export function Settings({
   const [licenseKey, setLicenseKey] = useState('')
   const [licenseBusy, setLicenseBusy] = useState(false)
   const [licenseError, setLicenseError] = useState<string | null>(null)
+  const [orbit, setOrbit] = useState<OrbitStatus | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [pull, setPull] = useState<OrbitPullProgress | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -61,6 +76,7 @@ export function Settings({
       const p = await getProfile()
       setProfile(p)
       setDisplayName(p?.display_name ?? '')
+      setOrbit(await window.orbit.orbit.status())
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -71,6 +87,22 @@ export function Settings({
     const next = await updateProfile({ display_name: trimmed || null })
     if (next) setProfile(next)
     setProfileSaving(false)
+  }
+
+  async function downloadOrbitModel(): Promise<void> {
+    setDownloading(true)
+    setPull({ status: 'starting' })
+    const off = window.orbit.orbit.onPullEvent((p) => {
+      // Carry the last known percent forward through Ollama's no-progress
+      // terminal phases so the bar never jumps backward.
+      setPull((prev) => ({ ...p, percent: p.percent ?? prev?.percent }))
+      if (p.done) {
+        off()
+        setDownloading(false)
+        void window.orbit.orbit.status().then(setOrbit)
+      }
+    })
+    await window.orbit.orbit.download()
   }
 
   async function activateLicense(): Promise<void> {
@@ -203,6 +235,58 @@ export function Settings({
                 {licenseError && <div className="auth-error">{licenseError}</div>}
               </div>
             </>
+          )}
+
+          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+            Orbit engine
+          </h3>
+          {orbit ? (
+            <div className="field">
+              <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--text)' }}>
+                Orbit 1.4 adapts to your hardware — this machine has{' '}
+                <strong>{orbit.ramGb} GB</strong> RAM,{' '}
+                {orbit.accelerated
+                  ? 'Apple Silicon (GPU-accelerated).'
+                  : 'CPU-only (no GPU — larger models run slower).'}
+              </p>
+              <p style={{ margin: '0 0 10px', fontSize: 12, color: '#6b7280' }}>
+                {orbit.anyPresent
+                  ? `Running the ${tierLabel(orbit.resolvedTag)} model` +
+                    (orbit.idealPresent
+                      ? ' — the most capable this machine can run.'
+                      : `. Recommended: ${orbit.idealLabel}.`)
+                  : 'No offline model installed yet.'}
+              </p>
+              {!orbit.idealPresent &&
+                (downloading ? (
+                  <div>
+                    <div className="orbit-progress">
+                      <div
+                        className="orbit-progress-bar"
+                        style={{ width: `${pull?.percent ?? 3}%` }}
+                      />
+                    </div>
+                    <p style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>
+                      {pull?.error
+                        ? `Error: ${pull.error}`
+                        : `${pull?.status ?? 'Downloading'}${
+                            pull?.percent != null ? ' — ' + pull.percent + '%' : '…'
+                          }`}
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    className="ghost-btn"
+                    onClick={() => void downloadOrbitModel()}
+                  >
+                    Download {orbit.idealLabel} model (~{orbit.idealSizeGb} GB)
+                  </button>
+                ))}
+            </div>
+          ) : (
+            <p style={{ marginTop: 0, fontSize: 12, color: '#6b7280' }}>
+              Checking your hardware…
+            </p>
           )}
 
           <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>

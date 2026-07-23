@@ -2352,6 +2352,18 @@ select {
   color: var(--text-faint);
   border-top: 1px solid var(--border);
 }
+.orbit-progress {
+  height: 6px;
+  background: var(--grey-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.orbit-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
 .update-popover {
   position: absolute;
   left: 10px;

@@ -177,6 +177,30 @@ export interface LicenseActivateResult {
   error?: string
 }
 
+export interface OrbitStatus {
+  /** Total system RAM (GB, rounded). */
+  ramGb: number
+  /** True on Apple Silicon (Metal-accelerated) — runs larger tiers well. */
+  accelerated: boolean
+  /** The largest tier this machine can run (the recommended download). */
+  idealTag: string
+  idealLabel: string
+  idealSizeGb: number
+  /** What "Orbit 1.4" actually runs right now (best downloaded tier that fits). */
+  resolvedTag: string
+  /** Whether the ideal tier is already downloaded. */
+  idealPresent: boolean
+  /** Whether any runnable tier is downloaded at all. */
+  anyPresent: boolean
+}
+
+export interface OrbitPullProgress {
+  status: string
+  percent?: number
+  done?: boolean
+  error?: string
+}
+
 export interface FileNode {
   name: string
   path: string

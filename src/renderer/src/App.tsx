@@ -141,8 +141,8 @@ function emptyConversation(provider: ProviderId, model: string): Conversation {
 
 const DEFAULT_SETTINGS: AppSettings = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
-  defaultProvider: 'orbit',
-  defaultModel: 'Orbit 1.2',
+  defaultProvider: 'local',
+  defaultModel: 'Orbit 1.4',
   temperature: 1,
   cloudEnabled: false
 }
@@ -180,7 +180,7 @@ export default function App({ license, onLicenseChange }: AppProps): JSX.Element
   rootPathRef.current = rootPath
 
   const [conversation, setConversation] = useState<Conversation>(() =>
-    emptyConversation('orbit', 'Orbit 1.2')
+    emptyConversation('local', 'Orbit 1.4')
   )
 
   const persistRef = useRef<(c: Conversation) => void>(() => {})
@@ -228,8 +228,8 @@ export default function App({ license, onLicenseChange }: AppProps): JSX.Element
     ) {
       chat.setConversation({
         ...chat.conversation,
-        provider: 'orbit',
-        model: 'Orbit 1.2'
+        provider: 'local',
+        model: 'Orbit 1.4'
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

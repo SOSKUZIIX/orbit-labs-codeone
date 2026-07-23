@@ -12,6 +12,8 @@ import type {
   LicenseActivateResult,
   LicenseStatus,
   OpenFolderResult,
+  OrbitPullProgress,
+  OrbitStatus,
   ProviderId,
   SearchHit,
   TerminalChunk
@@ -58,6 +60,15 @@ const api = {
     activate: (token: string): Promise<LicenseActivateResult> =>
       ipcRenderer.invoke(IPC.LicenseActivate, token),
     clear: (): Promise<LicenseStatus> => ipcRenderer.invoke(IPC.LicenseClear)
+  },
+  orbit: {
+    status: (): Promise<OrbitStatus> => ipcRenderer.invoke(IPC.OrbitStatus),
+    download: (): Promise<boolean> => ipcRenderer.invoke(IPC.OrbitDownload),
+    onPullEvent: (handler: (p: OrbitPullProgress) => void): (() => void) => {
+      const listener = (_e: unknown, p: OrbitPullProgress): void => handler(p)
+      ipcRenderer.on(IPC.OrbitPullEvent, listener)
+      return () => ipcRenderer.removeListener(IPC.OrbitPullEvent, listener)
+    }
   },
   app: {
     openExternal: (url: string): Promise<boolean> =>

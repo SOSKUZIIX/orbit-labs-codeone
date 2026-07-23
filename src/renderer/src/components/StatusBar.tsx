@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { LicenseStatus, ProviderId } from '@shared/types'
-import { isCloudProvider } from '@shared/providers'
+import { isCloudProvider, getProvider } from '@shared/providers'
 import { basename } from '../lib/path'
 import { getProfile } from '../lib/profile'
 
@@ -62,7 +62,7 @@ export function StatusBar({
           online
         </span>
       )}
-      <span className="status-item dim">{provider}</span>
+      <span className="status-item dim">{getProvider(provider)?.label ?? provider}</span>
       <span className="status-item">{model}</span>
       {displayName && <span className="status-item dim">{displayName}</span>}
       {detailsOpen && (

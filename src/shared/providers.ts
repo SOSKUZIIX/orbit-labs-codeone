@@ -47,18 +47,11 @@ export const PROVIDERS: ProviderInfo[] = [
     ]
   },
   {
-    id: 'orbit',
+    id: 'local',
     label: 'Orbit',
     docsUrl: 'https://codeone.orbitlabs.dev',
     keyPlaceholder: '',
-    models: ['Orbit 1.2']
-  },
-  {
-    id: 'local',
-    label: 'Local (offline)',
-    docsUrl: 'https://ollama.com/download',
-    keyPlaceholder: '',
-    models: ['qwen2.5-coder:32b']
+    models: ['Orbit 1.4']
   }
 ]
 

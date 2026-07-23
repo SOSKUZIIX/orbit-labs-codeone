@@ -2,7 +2,7 @@ import type { Provider, StreamArgs, EmitFn } from './types'
 import { streamLocal } from './local-runtime'
 
 /**
- * "Orbit 1.2" — Orbit Labs' branded offline coding model. Runs entirely on the
+ * "Orbit 1.4" — Orbit Labs' branded offline coding model. Runs entirely on the
  * user's machine via the local runtime (no API key, no account, no network
  * egress). Today it maps to the open-weight Qwen2.5-Coder 32B; this is the
  * model slot that will later point at Orbit Labs' own fine-tune.
@@ -11,8 +11,8 @@ import { streamLocal } from './local-runtime'
  * usage gate — removed in the offline pivot.)
  */
 const ORBIT_MODEL_MAP: Record<string, string> = {
-  'Orbit 1.2': 'qwen2.5-coder:32b',
-  'orbit-1.2': 'qwen2.5-coder:32b'
+  'Orbit 1.4': 'qwen2.5-coder:32b',
+  'orbit-1.4': 'qwen2.5-coder:32b'
 }
 
 export const orbitProvider: Provider = {

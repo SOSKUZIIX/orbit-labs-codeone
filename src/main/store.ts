@@ -7,8 +7,8 @@ import { envKeyFor } from './env'
 
 const DEFAULT_SETTINGS: AppSettings = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
-  defaultProvider: 'orbit',
-  defaultModel: 'Orbit 1.2',
+  defaultProvider: 'local',
+  defaultModel: 'Orbit 1.4',
   temperature: 1,
   cloudEnabled: false
 }

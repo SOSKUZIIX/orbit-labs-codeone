@@ -1,18 +1,16 @@
 import type { Provider, StreamArgs, EmitFn } from './types'
 import { streamLocal } from './local-runtime'
+import { resolveOrbitModelTag } from '../orbit-model'
 
 /**
- * "Local (offline)" — advanced offline provider. Runs a locally-served model
- * tag over loopback (Ollama etc.). Bring-your-own-model counterpart to the
- * branded Orbit provider. See docs/offline-setup.md.
+ * "Orbit 1.4" — the offline coding agent. A brand, not a fixed model: it runs
+ * the largest Qwen2.5-Coder tier this machine can hold (see orbit-model.ts).
+ * The display name is always "Orbit 1.4"; the tag is resolved under the hood.
  */
-const LOCAL_MODEL_MAP: Record<string, string> = {
-  'qwen2.5-coder:32b': 'qwen2.5-coder:32b'
-}
-
 export const localProvider: Provider = {
   id: 'local',
   async stream(args: StreamArgs, emit: EmitFn) {
-    return streamLocal(args, emit, { modelMap: LOCAL_MODEL_MAP, label: 'local' })
+    const model = await resolveOrbitModelTag(args.model)
+    return streamLocal({ ...args, model }, emit, { modelMap: {}, label: 'local' })
   }
 }

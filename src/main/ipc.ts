@@ -10,6 +10,7 @@ import type {
 import { getProvider } from './providers'
 import { OFFLINE_PROVIDER_IDS } from '@shared/providers'
 import { activateLicense, clearLicense, getLicenseStatus } from './license'
+import { orbitStatus, pullOrbitModel } from './orbit-model'
 import {
   clearSecrets,
   deleteConversation,
@@ -88,6 +89,17 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     activateLicense(token)
   )
   ipcMain.handle(IPC.LicenseClear, async () => clearLicense())
+
+  ipcMain.handle(IPC.OrbitStatus, async () => orbitStatus())
+  ipcMain.handle(IPC.OrbitDownload, async () => {
+    await pullOrbitModel((p) => {
+      const window = getWindow()
+      if (window && !window.isDestroyed()) {
+        window.webContents.send(IPC.OrbitPullEvent, p)
+      }
+    })
+    return true
+  })
 
   ipcMain.handle(IPC.FsOpenFolder, async () => openFolderDialog(getWindow()))
   ipcMain.handle(IPC.FsReadDir, async (_e, path: string) => readDirShallow(path))
