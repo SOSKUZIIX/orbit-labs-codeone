@@ -1,6 +1,7 @@
 import type { Provider, StreamArgs, EmitFn } from './types'
 import { deltaAdapter } from './types'
 import { readSSE } from './sse'
+import { safeFetch } from '../net-guard'
 
 export const anthropicProvider: Provider = {
   id: 'anthropic',
@@ -16,7 +17,7 @@ export const anthropicProvider: Provider = {
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role, content: m.content }))
     }
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await safeFetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: args.signal,
       headers: {

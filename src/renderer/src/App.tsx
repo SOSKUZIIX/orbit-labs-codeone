@@ -5,11 +5,13 @@ import type {
   AppSettings,
   Conversation,
   FileNode,
+  LicenseStatus,
   OpenTab,
   ProviderId,
   UICard
 } from '@shared/types'
 import { DEFAULT_SYSTEM_PROMPT } from '@shared/types'
+import { isCloudProvider } from '@shared/providers'
 import { ActivityBar, type ActivityView } from './components/ActivityBar'
 import { FileTree } from './components/FileTree'
 import { SearchPanel } from './components/SearchPanel'
@@ -29,8 +31,8 @@ import { Onboarding } from './components/Onboarding'
 import { getProfile, type Profile } from './lib/profile'
 import { recordRecent } from './lib/recents'
 import {
-  listConversations as listConversationsRemote,
-  saveConversation as saveConversationRemote
+  listConversations,
+  saveConversation
 } from './lib/conversations'
 
 const IMAGE_EXTS = new Set([
@@ -86,12 +88,21 @@ function dirname(p: string): string {
   const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
   return idx >= 0 ? p.slice(0, idx) : p
 }
+// Injected first in the preview so it runs before any untrusted page script.
+// Removes the WebRTC constructors from the preview's TOP window (a channel the
+// HTTP guard can't see). Best-effort only: it does NOT cover frames the page
+// itself creates, and WebRTC cannot be fully blocked in a renderer running
+// untrusted scripts — see docs/threat-model.md. The definitive control is a
+// network-isolated machine.
+const PREVIEW_HARDENING =
+  '<script>(function(){["RTCPeerConnection","webkitRTCPeerConnection","mozRTCPeerConnection","RTCDataChannel"].forEach(function(k){try{Object.defineProperty(window,k,{configurable:false,get:function(){return undefined}})}catch(e){try{window[k]=undefined}catch(_){}}})})();</script>'
+
 function previewDocument(path: string, content: string): string {
-  const base = `<base href="${fileUrlFor(dirname(path))}/">`
+  const head = PREVIEW_HARDENING + `<base href="${fileUrlFor(dirname(path))}/">`
   if (/<head[\s>]/i.test(content)) {
-    return content.replace(/<head([^>]*)>/i, `<head$1>${base}`)
+    return content.replace(/<head([^>]*)>/i, `<head$1>${head}`)
   }
-  return `${base}${content}`
+  return `${head}${content}`
 }
 function normalizePreviewUrl(text: string): string | null {
   const trimmed = text.trim()
@@ -132,10 +143,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   defaultProvider: 'orbit',
   defaultModel: 'Orbit 1.2',
-  temperature: 1
+  temperature: 1,
+  cloudEnabled: false
 }
 
-export default function App(): JSX.Element {
+interface AppProps {
+  license: LicenseStatus
+  onLicenseChange: (status: LicenseStatus) => void
+}
+
+export default function App({ license, onLicenseChange }: AppProps): JSX.Element {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -168,7 +185,7 @@ export default function App(): JSX.Element {
 
   const persistRef = useRef<(c: Conversation) => void>(() => {})
   persistRef.current = (c: Conversation) => {
-    void saveConversationRemote(c)
+    void saveConversation(c)
   }
   const persist = useCallback((c: Conversation) => persistRef.current(c), [])
   const chat = useChat(conversation, settings, persist)
@@ -182,7 +199,7 @@ export default function App(): JSX.Element {
       const s = await window.orbit.settings.get()
       setSettings(s)
       setPreviewUrl(await window.orbit.app.getPreviewUrl())
-      const saved = await listConversationsRemote()
+      const saved = await listConversations()
       chat.setConversation(
         saved[0] ?? emptyConversation(s.defaultProvider, s.defaultModel)
       )
@@ -201,6 +218,22 @@ export default function App(): JSX.Element {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // If cloud is turned off while a cloud model is selected, fall back to the
+  // offline Orbit engine so the picker and the send path stay consistent.
+  useEffect(() => {
+    if (
+      !(settings.cloudEnabled ?? false) &&
+      isCloudProvider(chat.conversation.provider)
+    ) {
+      chat.setConversation({
+        ...chat.conversation,
+        provider: 'orbit',
+        model: 'Orbit 1.2'
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.cloudEnabled, chat.conversation.provider])
 
   async function openFolder(): Promise<void> {
     const result = await window.orbit.fs.openFolder()
@@ -658,6 +691,7 @@ export default function App(): JSX.Element {
           <div className="agent-fixed">
             <AgentPanel
               conversation={chat.conversation}
+              cloudEnabled={settings.cloudEnabled ?? false}
               busy={chat.busy}
               queuedCount={chat.queuedCount}
               error={chat.error}
@@ -685,12 +719,15 @@ export default function App(): JSX.Element {
         dirty={activeTab?.dirty ?? false}
         provider={chat.conversation.provider}
         model={chat.conversation.model}
+        license={license}
       />
       <SettingsModal
         open={showSettings}
         onClose={() => setShowSettings(false)}
         settings={settings}
         onSettingsChange={setSettings}
+        license={license}
+        onLicenseChange={onLicenseChange}
         onReplayTour={() => {
           setShowSettings(false)
           setShowOnboarding(true)

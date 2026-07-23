@@ -2,7 +2,10 @@ import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+// Fully-offline build: no secrets are baked into any bundle. The app talks only
+// to a local inference runtime on loopback — there is no cloud API key, auth, or
+// usage backend to embed.
+export default defineConfig(() => ({
   main: {
     plugins: [externalizeDepsPlugin()],
     resolve: {
@@ -30,4 +33,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

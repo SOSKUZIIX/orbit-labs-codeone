@@ -1,6 +1,7 @@
 import type { Provider, StreamArgs, EmitFn } from './types'
 import { deltaAdapter } from './types'
 import { readSSE } from './sse'
+import { safeFetch } from '../net-guard'
 
 export const googleProvider: Provider = {
   id: 'google',
@@ -29,7 +30,7 @@ export const googleProvider: Provider = {
         args.model
       )}:streamGenerateContent?alt=sse&key=${encodeURIComponent(args.apiKey)}`
 
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       method: 'POST',
       signal: args.signal,
       headers: { 'content-type': 'application/json' },

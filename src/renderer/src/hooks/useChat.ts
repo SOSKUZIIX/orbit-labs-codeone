@@ -130,12 +130,6 @@ export function useChat(
         next.mode === 'plan'
           ? '\n\nYou are in PLAN MODE. Ask clarifying questions only if needed, then do not produce code or file edits yet. Instead, write a concise, numbered plan describing what you would do, the files involved, and the tradeoffs. End with "Reply with `go` to proceed." so the user can approve.'
           : '\n\nYou are in AGENT MODE. Do not ask the user clarifying questions unless the request is impossible or unsafe without an answer. Make reasonable assumptions and proceed.'
-      let authToken: string | undefined
-      if (next.provider === 'orbit') {
-        const { supabase } = await import('../lib/supabase')
-        const { data } = await supabase.auth.getSession()
-        authToken = data.session?.access_token
-      }
       await window.orbit.chat.start({
         requestId,
         provider: next.provider,
@@ -144,8 +138,7 @@ export function useChat(
         systemPrompt: settings.systemPrompt + planSuffix,
         temperature: settings.temperature,
         workspaceRoot: extras?.workspaceRoot ?? null,
-        mode: next.mode,
-        authToken
+        mode: next.mode
       })
     },
     [

@@ -12,6 +12,7 @@ import { listConversations as listConversationsRemote } from '../lib/conversatio
 
 interface Props {
   conversation: Conversation
+  cloudEnabled: boolean
   busy: boolean
   queuedCount: number
   error: string | null
@@ -37,6 +38,7 @@ interface Props {
 
 export function AgentPanel({
   conversation,
+  cloudEnabled,
   busy,
   queuedCount,
   error,
@@ -87,6 +89,7 @@ export function AgentPanel({
       provider={conversation.provider}
       model={conversation.model}
       mode={mode}
+      cloudEnabled={cloudEnabled}
       rootPath={rootPath}
       onModelSelect={onModelSelect}
       onModeChange={onModeChange}

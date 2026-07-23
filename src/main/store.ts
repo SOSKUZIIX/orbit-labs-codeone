@@ -9,7 +9,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   defaultProvider: 'orbit',
   defaultModel: 'Orbit 1.2',
-  temperature: 1
+  temperature: 1,
+  cloudEnabled: false
 }
 
 // Old prompts we replace on read so existing installs pick up the new default.

@@ -11,7 +11,8 @@ const ENV_KEYS: Record<ProviderId, string[]> = {
   anthropic: ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY'],
   openai: ['OPENAI_API_KEY'],
   google: ['GOOGLE_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GENAI_API_KEY'],
-  orbit: []
+  orbit: [],
+  local: []
 }
 
 function parseDotenv(text: string): Record<string, string> {

@@ -41,14 +41,13 @@ git tag v0.1.0-beta.1
 git push origin v0.1.0-beta.1
 ```
 
-The workflow uploads stable asset names for the website and in-app update feed:
+The workflow uploads stable asset names for the website downloads:
 
 - `CodeOne-mac.dmg`
 - `CodeOne-mac-intel.dmg`
 - `CodeOne-win.exe`
 
-See `docs/github-releases.md` for repository secrets, website download URLs,
-and the update-feed release process.
+See `docs/github-releases.md` for the website download URLs and release process.
 
 ## Project layout
 

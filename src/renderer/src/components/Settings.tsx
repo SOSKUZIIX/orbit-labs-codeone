@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { AppSettings, ProviderId } from '@shared/types'
-import { PROVIDERS } from '@shared/providers'
+import type { AppSettings, LicenseStatus, ProviderId } from '@shared/types'
+import { PROVIDERS, CLOUD_PROVIDER_IDS } from '@shared/providers'
 import { getProfile, updateProfile, type Profile } from '../lib/profile'
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
   onClose: () => void
   settings: AppSettings
   onSettingsChange: (s: AppSettings) => void
+  license: LicenseStatus | null
+  onLicenseChange: (status: LicenseStatus) => void
   onReplayTour?: () => void
 }
 
@@ -21,28 +23,37 @@ export function Settings({
   onClose,
   settings,
   onSettingsChange,
+  license,
+  onLicenseChange,
   onReplayTour
 }: Props): JSX.Element | null {
   const [keys, setKeys] = useState<Record<ProviderId, KeyState>>({
     anthropic: { value: '', source: null },
     openai: { value: '', source: null },
     google: { value: '', source: null },
-    orbit: { value: '', source: null }
+    orbit: { value: '', source: null },
+    local: { value: '', source: null }
   })
   const [systemPrompt, setSystemPrompt] = useState(settings.systemPrompt)
   const [temperature, setTemperature] = useState(settings.temperature)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
+  const [cloudEnabled, setCloudEnabled] = useState(settings.cloudEnabled ?? false)
+  const [licenseKey, setLicenseKey] = useState('')
+  const [licenseBusy, setLicenseBusy] = useState(false)
+  const [licenseError, setLicenseError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setSystemPrompt(settings.systemPrompt)
     setTemperature(settings.temperature)
+    setCloudEnabled(settings.cloudEnabled ?? false)
     ;(async () => {
       const next: Record<ProviderId, KeyState> = { ...keys }
       for (const p of PROVIDERS) {
-        if (p.id === 'orbit') continue
+        // Keyless offline providers (Orbit engine, Local) have no secret.
+        if (p.id === 'orbit' || p.id === 'local') continue
         const source = await window.orbit.secrets.source(p.id)
         next[p.id] = { value: '', source }
       }
@@ -60,6 +71,41 @@ export function Settings({
     const next = await updateProfile({ display_name: trimmed || null })
     if (next) setProfile(next)
     setProfileSaving(false)
+  }
+
+  async function activateLicense(): Promise<void> {
+    const token = licenseKey.trim()
+    if (!token) return
+    setLicenseBusy(true)
+    setLicenseError(null)
+    const res = await window.orbit.license.activate(token)
+    setLicenseBusy(false)
+    if (res.ok && res.status) {
+      onLicenseChange(res.status)
+      setLicenseKey('')
+    } else {
+      setLicenseError(res.error ?? 'Activation failed.')
+    }
+  }
+
+  async function deactivateLicense(): Promise<void> {
+    onLicenseChange(await window.orbit.license.clear())
+  }
+
+  async function toggleCloud(next: boolean): Promise<void> {
+    if (next) {
+      const ok = window.confirm(
+        'Turn on cloud AI providers?\n\n' +
+          'Chats using Claude, GPT, or Gemini — including any workspace files ' +
+          'the agent reads — will be sent to that provider over the internet ' +
+          'and leave your machine. The offline Orbit and Local engines are ' +
+          'never affected.'
+      )
+      if (!ok) return
+    }
+    setCloudEnabled(next)
+    const updated = await window.orbit.settings.set({ cloudEnabled: next })
+    onSettingsChange(updated)
   }
 
   if (!open) return null
@@ -90,6 +136,21 @@ export function Settings({
     onClose()
   }
 
+  async function removeStoredCloudKeys(): Promise<void> {
+    for (const id of CLOUD_PROVIDER_IDS) {
+      if (keys[id]?.source === 'user') await window.orbit.secrets.set(id, '')
+    }
+    const next: Record<ProviderId, KeyState> = { ...keys }
+    for (const id of CLOUD_PROVIDER_IDS) {
+      next[id] = { value: '', source: await window.orbit.secrets.source(id) }
+    }
+    setKeys(next)
+  }
+
+  const storedCloud = CLOUD_PROVIDER_IDS.filter(
+    (id) => keys[id]?.source === 'user'
+  )
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -101,16 +162,54 @@ export function Settings({
         </div>
         <div className="modal-body">
           <h3 style={{ margin: '0 0 8px', fontSize: 13, color: '#9aa3b2' }}>
-            Account
+            License
+          </h3>
+          {license?.state === 'licensed' ? (
+            <div className="field">
+              <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--text)' }}>
+                Licensed to <strong>{license.licensedTo}</strong>.
+              </p>
+              <button
+                className="ghost-btn"
+                onClick={() => void deactivateLicense()}
+              >
+                Deactivate on this machine
+              </button>
+            </div>
+          ) : (
+            <>
+              <p style={{ marginTop: 0, fontSize: 12, color: '#6b7280' }}>
+                {license?.state === 'trial'
+                  ? `Trial — ${license.trialDaysLeft} day${license.trialDaysLeft === 1 ? '' : 's'} left. Verified locally; nothing is sent anywhere.`
+                  : 'Unlicensed. Enter a license key to activate — verified locally, no internet needed.'}
+              </p>
+              <div className="field">
+                <label>License key</label>
+                <div className="row">
+                  <input
+                    type="text"
+                    placeholder="Paste your license key"
+                    value={licenseKey}
+                    onChange={(e) => setLicenseKey(e.target.value)}
+                  />
+                  <button
+                    className="ghost-btn"
+                    onClick={() => void activateLicense()}
+                    disabled={licenseBusy || !licenseKey.trim()}
+                  >
+                    {licenseBusy ? 'Activating…' : 'Activate'}
+                  </button>
+                </div>
+                {licenseError && <div className="auth-error">{licenseError}</div>}
+              </div>
+            </>
+          )}
+
+          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+            Profile
           </h3>
           {profile ? (
             <>
-              <div className="field">
-                <label>
-                  Email <span className="tag ok">{profile.role}</span>
-                </label>
-                <input type="email" value={profile.email} disabled />
-              </div>
               <div className="field">
                 <label>Display name</label>
                 <div className="row">
@@ -147,13 +246,49 @@ export function Settings({
           )}
 
           <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
-            API Keys
+            Online providers
           </h3>
-          <p style={{ marginTop: 0, fontSize: 12, color: '#6b7280' }}>
-            Stored locally and encrypted with your OS keychain when available.
-            Keys never leave your machine except in requests to the provider.
+          <label className="cloud-toggle">
+            <input
+              type="checkbox"
+              checked={cloudEnabled}
+              onChange={(e) => void toggleCloud(e.target.checked)}
+            />
+            <span>Allow cloud AI providers (Claude, GPT, Gemini)</span>
+          </label>
+          <p style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>
+            Off by default. When on, chats using these models — including any
+            workspace files the agent reads — are sent to that provider's servers
+            and leave your machine. The offline Orbit and Local engines are never
+            affected.
           </p>
-          {PROVIDERS.filter((p) => p.id !== 'orbit').map((p) => (
+
+          {!cloudEnabled && storedCloud.length > 0 && (
+            <div className="field">
+              <p style={{ margin: '0 0 6px', fontSize: 12, color: '#6b7280' }}>
+                You still have saved API keys for {storedCloud.length} cloud
+                provider{storedCloud.length > 1 ? 's' : ''}. They stay encrypted
+                on your machine and are never used while cloud is off.
+              </p>
+              <button
+                className="ghost-btn"
+                onClick={() => void removeStoredCloudKeys()}
+              >
+                Remove saved cloud keys
+              </button>
+            </div>
+          )}
+
+          {cloudEnabled && (
+            <>
+              <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+                API Keys
+              </h3>
+              <p style={{ marginTop: 0, fontSize: 12, color: '#6b7280' }}>
+                Stored locally and encrypted with your OS keychain when
+                available. Keys are sent only in requests to that provider.
+              </p>
+              {PROVIDERS.filter((p) => p.id !== 'orbit' && p.id !== 'local').map((p) => (
             <div className="field" key={p.id}>
               <label>
                 {p.label}{' '}
@@ -208,6 +343,8 @@ export function Settings({
               </div>
             </div>
           ))}
+            </>
+          )}
 
           <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
             Generation

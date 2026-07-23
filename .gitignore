@@ -17,3 +17,7 @@ website/public/downloads/*
 .env
 .env.local
 .env.*.local
+
+# License signing key — NEVER commit. Keep it offline/secure.
+.license-signing-key.pem
+*.license-key.pem

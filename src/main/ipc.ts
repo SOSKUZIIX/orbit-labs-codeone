@@ -1,15 +1,15 @@
-import { app, ipcMain, BrowserWindow, shell } from 'electron'
+import { ipcMain, BrowserWindow, shell } from 'electron'
 import { IPC } from '@shared/ipc'
 import type {
   AppSettings,
   ChatEvent,
   ChatRequest,
   Conversation,
-  ProviderId,
-  UpdateInfo
+  ProviderId
 } from '@shared/types'
 import { getProvider } from './providers'
-import { checkAndIncrementOrbitUsage } from './orbit-usage'
+import { OFFLINE_PROVIDER_IDS } from '@shared/providers'
+import { activateLicense, clearLicense, getLicenseStatus } from './license'
 import {
   clearSecrets,
   deleteConversation,
@@ -28,7 +28,8 @@ import {
   readFile,
   writeFile,
   importAttachment,
-  recentFolders
+  recentFolders,
+  recordRecentFolder
 } from './fs'
 import {
   startTerminal,
@@ -41,92 +42,10 @@ import { searchFiles } from './search'
 
 const inflight = new Map<string, AbortController>()
 let previewUrl: string | null = null
-const UPDATE_FEED_URL = 'https://codeone.orbitlabs.dev/latest.json'
-const DOWNLOAD_URL = 'https://codeone.orbitlabs.dev/download'
 
 function send(window: BrowserWindow, event: ChatEvent): void {
   if (window.isDestroyed()) return
   window.webContents.send(IPC.ChatEvent, event)
-}
-
-function compareVersions(a: string, b: string): number {
-  const pa = parseVersion(a)
-  const pb = parseVersion(b)
-  for (let i = 0; i < 3; i++) {
-    const diff = pa.core[i] - pb.core[i]
-    if (diff !== 0) return diff
-  }
-  if (!pa.prerelease.length && pb.prerelease.length) return 1
-  if (pa.prerelease.length && !pb.prerelease.length) return -1
-  const len = Math.max(pa.prerelease.length, pb.prerelease.length)
-  for (let i = 0; i < len; i++) {
-    const left = pa.prerelease[i]
-    const right = pb.prerelease[i]
-    if (left === undefined) return -1
-    if (right === undefined) return 1
-    const leftNum = /^\d+$/.test(left) ? Number(left) : null
-    const rightNum = /^\d+$/.test(right) ? Number(right) : null
-    if (leftNum !== null && rightNum !== null) {
-      const diff = leftNum - rightNum
-      if (diff !== 0) return diff
-      continue
-    }
-    if (leftNum !== null) return -1
-    if (rightNum !== null) return 1
-    const diff = left.localeCompare(right)
-    if (diff !== 0) return diff
-  }
-  return 0
-}
-
-function parseVersion(version: string): { core: [number, number, number]; prerelease: string[] } {
-  const clean = version.trim().replace(/^v/i, '').split('+')[0]
-  const [corePart, prereleasePart = ''] = clean.split('-', 2)
-  const core = corePart
-    .split('.')
-    .slice(0, 3)
-    .map((part) => Number.parseInt(part, 10) || 0)
-  while (core.length < 3) core.push(0)
-  return {
-    core: core as [number, number, number],
-    prerelease: prereleasePart ? prereleasePart.split('.') : []
-  }
-}
-
-async function checkForUpdates(): Promise<UpdateInfo> {
-  const currentVersion = app.getVersion()
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 5000)
-    const res = await fetch(UPDATE_FEED_URL, { signal: controller.signal })
-    clearTimeout(timer)
-    if (!res.ok) throw new Error(`Update feed returned ${res.status}`)
-    const json = (await res.json()) as Partial<UpdateInfo>
-    const latestVersion = String(json.latestVersion ?? currentVersion)
-    return {
-      currentVersion,
-      latestVersion,
-      available: compareVersions(latestVersion, currentVersion) > 0,
-      downloadUrl: String(json.downloadUrl ?? DOWNLOAD_URL),
-      changelog: Array.isArray(json.changelog)
-        ? json.changelog.map(String).filter(Boolean)
-        : [],
-      checkedAt: Date.now()
-    }
-  } catch (err) {
-    return {
-      currentVersion,
-      latestVersion: currentVersion,
-      available: false,
-      downloadUrl: DOWNLOAD_URL,
-      changelog: [
-        'CodeOne is in beta.',
-        'Updates will appear here when the public download site publishes the latest release feed.'
-      ],
-      checkedAt: Date.now(),
-      error: err instanceof Error ? err.message : 'Unable to check updates'
-    }
-  }
 }
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
@@ -163,7 +82,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if (/^https?:\/\//i.test(url)) await shell.openExternal(url)
     return true
   })
-  ipcMain.handle(IPC.UpdateCheck, async () => checkForUpdates())
+
+  ipcMain.handle(IPC.LicenseGet, async () => getLicenseStatus())
+  ipcMain.handle(IPC.LicenseActivate, async (_e, token: string) =>
+    activateLicense(token)
+  )
+  ipcMain.handle(IPC.LicenseClear, async () => clearLicense())
 
   ipcMain.handle(IPC.FsOpenFolder, async () => openFolderDialog(getWindow()))
   ipcMain.handle(IPC.FsReadDir, async (_e, path: string) => readDirShallow(path))
@@ -183,6 +107,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
       importAttachment(root, fileName, dataUrl)
   )
   ipcMain.handle(IPC.FsRecentFolders, async () => recentFolders())
+  ipcMain.handle(IPC.FsRecordRecent, async (_e, path: string) => {
+    await recordRecentFolder(path)
+    return true
+  })
 
   ipcMain.handle(IPC.AppOpenPath, async (_e, path: string) => {
     if (!path) return false
@@ -265,49 +193,25 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     const window = getWindow()
     if (!window) return
     let apiKey = ''
-    if (req.provider === 'orbit') {
-      const systemKey = process.env.ORBITONE_OPENAI_KEY
-      if (!systemKey) {
+    if (OFFLINE_PROVIDER_IDS.includes(req.provider)) {
+      // Fully offline: no key, no auth, no usage gate. Both the branded Orbit
+      // engine and the advanced Local provider run on a loopback runtime.
+      apiKey = 'local'
+    } else {
+      // Cloud provider (Claude / GPT / Gemini). Hard-gated behind the opt-in
+      // toggle: these send the conversation — including any workspace files the
+      // agent reads — to a third-party server. This is the real enforcement;
+      // the renderer only hides them from the picker.
+      const settings = await getSettings()
+      if (!settings.cloudEnabled) {
         send(window, {
           kind: 'error',
           requestId: req.requestId,
           message:
-            'Orbit 1.2 is not configured on this build. Set ORBITONE_OPENAI_KEY in .env.'
+            'Online providers are off. Claude, GPT, and Gemini send your chat and code to their servers — turn them on in Settings → Online providers to use them.'
         })
         return
       }
-      if (!req.authToken) {
-        send(window, {
-          kind: 'error',
-          requestId: req.requestId,
-          message: 'Sign in is required to use Orbit 1.2.'
-        })
-        return
-      }
-      try {
-        const usage = await checkAndIncrementOrbitUsage(req.authToken)
-        if (!usage.allowed) {
-          const reset = new Date(usage.reset_at).toLocaleTimeString([], {
-            hour: 'numeric',
-            minute: '2-digit'
-          })
-          send(window, {
-            kind: 'error',
-            requestId: req.requestId,
-            message: `Orbit 1.2 usage limit reached (${usage.count}/${usage.limit}). Resets at ${reset}.`
-          })
-          return
-        }
-      } catch (err) {
-        send(window, {
-          kind: 'error',
-          requestId: req.requestId,
-          message: `Could not verify Orbit 1.2 usage: ${err instanceof Error ? err.message : String(err)}`
-        })
-        return
-      }
-      apiKey = systemKey
-    } else {
       const fetched = await getSecret(req.provider)
       if (!fetched) {
         send(window, {

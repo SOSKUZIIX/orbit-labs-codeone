@@ -9,11 +9,12 @@ import type {
   FileReadResult,
   FileSnapshot,
   ImportedAttachment,
+  LicenseActivateResult,
+  LicenseStatus,
   OpenFolderResult,
   ProviderId,
   SearchHit,
-  TerminalChunk,
-  UpdateInfo
+  TerminalChunk
 } from '@shared/types'
 
 const api = {
@@ -52,11 +53,15 @@ const api = {
       return () => ipcRenderer.removeListener(IPC.ChatEvent, listener)
     }
   },
+  license: {
+    get: (): Promise<LicenseStatus> => ipcRenderer.invoke(IPC.LicenseGet),
+    activate: (token: string): Promise<LicenseActivateResult> =>
+      ipcRenderer.invoke(IPC.LicenseActivate, token),
+    clear: (): Promise<LicenseStatus> => ipcRenderer.invoke(IPC.LicenseClear)
+  },
   app: {
     openExternal: (url: string): Promise<boolean> =>
       ipcRenderer.invoke(IPC.OpenExternal, url),
-    checkForUpdates: (): Promise<UpdateInfo> =>
-      ipcRenderer.invoke(IPC.UpdateCheck),
     openPath: (path: string): Promise<boolean> =>
       ipcRenderer.invoke(IPC.AppOpenPath, path),
     getPreviewUrl: (): Promise<string | null> =>
@@ -105,7 +110,9 @@ const api = {
     ): Promise<ImportedAttachment> =>
       ipcRenderer.invoke(IPC.FsImportAttachment, root, fileName, dataUrl),
     recentFolders: (): Promise<string[]> =>
-      ipcRenderer.invoke(IPC.FsRecentFolders)
+      ipcRenderer.invoke(IPC.FsRecentFolders),
+    recordRecent: (path: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.FsRecordRecent, path)
   },
   snapshots: {
     list: (path: string): Promise<FileSnapshot[]> =>

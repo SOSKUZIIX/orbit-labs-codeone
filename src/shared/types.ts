@@ -58,7 +58,7 @@ export type UICard =
       edits: { path: string; action: 'created' | 'modified' | 'deleted' }[]
     }
 
-export type ProviderId = 'anthropic' | 'openai' | 'google' | 'orbit'
+export type ProviderId = 'anthropic' | 'openai' | 'google' | 'orbit' | 'local'
 
 export interface ProviderInfo {
   id: ProviderId
@@ -78,7 +78,6 @@ export interface ChatRequest {
   maxTokens?: number
   workspaceRoot?: string | null
   mode?: AgentMode
-  authToken?: string
 }
 
 export type ChatEvent =
@@ -106,16 +105,9 @@ export interface AppSettings {
   temperature: number
   recentFolders?: string[]
   lastFolder?: string
-}
-
-export interface UpdateInfo {
-  currentVersion: string
-  latestVersion: string
-  available: boolean
-  downloadUrl: string
-  changelog: string[]
-  checkedAt: number
-  error?: string
+  /** Opt-in gate for cloud providers (Claude/GPT/Gemini). Off by default —
+   *  when off, only the offline Orbit/Local engines can be used. */
+  cloudEnabled?: boolean
 }
 
 export const DEFAULT_SYSTEM_PROMPT = `You are CodeOne, an AI coding companion from Orbit Labs.
@@ -167,6 +159,23 @@ Operating principles:
 - Avoid assumptions — if unsure, ask.
 - Bad or rushed design is considered failure.
 - Be concise in prose; favor precision over verbosity.`
+
+export type LicenseState = 'licensed' | 'trial' | 'expired'
+
+export interface LicenseStatus {
+  state: LicenseState
+  /** Present when state === 'licensed'. */
+  licensedTo?: string
+  issuedAt?: number
+  /** Present when state === 'trial'. */
+  trialDaysLeft?: number
+}
+
+export interface LicenseActivateResult {
+  ok: boolean
+  status?: LicenseStatus
+  error?: string
+}
 
 export interface FileNode {
   name: string

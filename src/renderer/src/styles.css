@@ -2309,16 +2309,6 @@ select {
 .status-bar .status-item.dim {
   color: var(--text-faint);
 }
-.status-bar .status-signout {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-}
-.status-bar .status-signout:hover {
-  color: var(--text);
-}
 .status-badge {
   height: 16px;
   display: inline-flex;
@@ -2336,10 +2326,31 @@ select {
   background: var(--accent);
   border-color: transparent;
 }
-.status-badge.update.available {
+.status-badge.online {
+  color: #1a1205;
+  background: #e0a33e;
+  border-color: transparent;
+}
+.cloud-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
   color: var(--text);
-  border-color: var(--border-strong);
-  background: var(--grey-mid);
+  cursor: pointer;
+}
+.cloud-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.model-picker-hint {
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
 }
 .update-popover {
   position: absolute;
@@ -2358,8 +2369,7 @@ select {
   font-size: 13px;
   font-weight: 600;
 }
-.update-popover-meta,
-.update-popover-error {
+.update-popover-meta {
   margin-top: 4px;
   color: var(--text-faint);
   font-size: 11px;

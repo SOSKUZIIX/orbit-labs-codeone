@@ -52,6 +52,13 @@ export const PROVIDERS: ProviderInfo[] = [
     docsUrl: 'https://codeone.orbitlabs.dev',
     keyPlaceholder: '',
     models: ['Orbit 1.2']
+  },
+  {
+    id: 'local',
+    label: 'Local (offline)',
+    docsUrl: 'https://ollama.com/download',
+    keyPlaceholder: '',
+    models: ['qwen2.5-coder:32b']
   }
 ]
 
@@ -71,4 +78,14 @@ export const ALL_MODELS: ModelEntry[] = PROVIDERS.flatMap((p) =>
 
 export function findModel(id: string): ModelEntry | undefined {
   return ALL_MODELS.find((m) => m.id === id)
+}
+
+/** Offline engines that run on the local loopback runtime — always available. */
+export const OFFLINE_PROVIDER_IDS: ProviderId[] = ['orbit', 'local']
+
+/** Cloud providers that send data off the machine — opt-in, off by default. */
+export const CLOUD_PROVIDER_IDS: ProviderId[] = ['anthropic', 'openai', 'google']
+
+export function isCloudProvider(id: ProviderId): boolean {
+  return CLOUD_PROVIDER_IDS.includes(id)
 }

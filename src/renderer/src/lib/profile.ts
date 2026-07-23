@@ -1,4 +1,6 @@
-import { supabase } from './supabase'
+// Local, offline profile. Stored in the renderer's localStorage — never sent
+// anywhere. Keeps the same shape the UI already expects so the onboarding survey
+// and Settings display-name field keep working without any backend.
 
 export type UsageType = 'personal' | 'work' | 'school'
 export type TeamSize = 'solo' | '2-10' | '11-50' | '50+'
@@ -15,23 +17,28 @@ export interface Profile {
   referral_source: string | null
 }
 
-const SELECT_COLS =
-  'id, email, display_name, role, onboarded, usage_type, role_title, team_size, referral_source'
+const STORAGE_KEY = 'codeone.profile'
+
+const DEFAULT_PROFILE: Profile = {
+  id: 'local',
+  email: '',
+  display_name: null,
+  role: 'local',
+  onboarded: false,
+  usage_type: null,
+  role_title: null,
+  team_size: null,
+  referral_source: null
+}
 
 export async function getProfile(): Promise<Profile | null> {
-  const { data: userResp } = await supabase.auth.getUser()
-  const userId = userResp.user?.id
-  if (!userId) return null
-  const { data, error } = await supabase
-    .from('users')
-    .select(SELECT_COLS)
-    .eq('id', userId)
-    .maybeSingle()
-  if (error) {
-    console.error('getProfile', error)
-    return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return { ...DEFAULT_PROFILE }
+    return { ...DEFAULT_PROFILE, ...(JSON.parse(raw) as Partial<Profile>) }
+  } catch {
+    return { ...DEFAULT_PROFILE }
   }
-  return data as Profile | null
 }
 
 export async function updateProfile(patch: {
@@ -42,18 +49,12 @@ export async function updateProfile(patch: {
   team_size?: TeamSize | null
   referral_source?: string | null
 }): Promise<Profile | null> {
-  const { data: userResp } = await supabase.auth.getUser()
-  const userId = userResp.user?.id
-  if (!userId) return null
-  const { data, error } = await supabase
-    .from('users')
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq('id', userId)
-    .select(SELECT_COLS)
-    .maybeSingle()
-  if (error) {
-    console.error('updateProfile', error)
-    return null
+  const current = (await getProfile()) ?? { ...DEFAULT_PROFILE }
+  const next: Profile = { ...current, ...patch }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    /* storage unavailable — keep in-memory value */
   }
-  return data as Profile | null
+  return next
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AgentMode, ProviderId } from '@shared/types'
-import { PROVIDERS } from '@shared/providers'
+import { PROVIDERS, isCloudProvider } from '@shared/providers'
 import { ChevronDown, SendIcon, StopIcon } from './Icons'
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
   provider: ProviderId
   model: string
   mode: AgentMode
+  cloudEnabled: boolean
   rootPath: string | null
   onModelSelect: (provider: ProviderId, model: string) => void
   onModeChange: (m: AgentMode) => void
@@ -36,6 +37,7 @@ export function AgentComposer({
   provider,
   model,
   mode,
+  cloudEnabled,
   rootPath,
   onModelSelect,
   onModeChange,
@@ -50,6 +52,11 @@ export function AgentComposer({
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
   const activeProvider = PROVIDERS.find((p) => p.id === provider)
+  // Cloud providers are hidden until the user opts in (Settings → Online
+  // providers). The offline Orbit/Local engines are always available.
+  const visibleProviders = cloudEnabled
+    ? PROVIDERS
+    : PROVIDERS.filter((p) => !isCloudProvider(p.id))
 
   useEffect(() => {
     const el = ref.current
@@ -196,7 +203,7 @@ export function AgentComposer({
           </button>
           {modelOpen && (
             <div className="model-picker-menu">
-              {PROVIDERS.map((p) => (
+              {visibleProviders.map((p) => (
                 <div className="model-picker-group" key={p.id}>
                   <div className="model-picker-group-title">{p.label}</div>
                   {p.models.map((id) => (
@@ -214,6 +221,12 @@ export function AgentComposer({
                   ))}
                 </div>
               ))}
+              {!cloudEnabled && (
+                <div className="model-picker-hint">
+                  Cloud models (Claude, GPT, Gemini) are off. Turn them on in
+                  Settings → Online providers — they send your code off-device.
+                </div>
+              )}
             </div>
           )}
         </div>

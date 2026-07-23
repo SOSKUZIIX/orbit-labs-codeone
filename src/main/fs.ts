@@ -128,7 +128,7 @@ export async function openFolderDialog(
   if (result.canceled || !result.filePaths[0]) return null
   const root = result.filePaths[0]
   const tree = await readDirNode(root, 0, 1)
-  await pushRecentFolder(root)
+  await recordRecentFolder(root)
   return { root, tree }
 }
 
@@ -227,7 +227,7 @@ export async function importAttachment(
   return { name, path, mimeType }
 }
 
-async function pushRecentFolder(path: string): Promise<void> {
+export async function recordRecentFolder(path: string): Promise<void> {
   const s = await getSettings()
   const list = (s.recentFolders ?? []).filter((p) => p !== path)
   list.unshift(path)
