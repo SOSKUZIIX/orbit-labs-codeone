@@ -40,7 +40,9 @@ jobs:
 
   build-windows:
     name: Build Windows installer
-    runs-on: windows-latest
+    # Pinned: windows-latest (2025) ships a VS layout node-gyp mis-parses when
+    # rebuilding the node-pty native module. windows-2022 detects cleanly.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
