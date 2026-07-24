@@ -28,7 +28,7 @@ jobs:
           python-version: '3.11'
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run package:mac -- --publish never
+      - run: npm run package:mac
       - run: node scripts/prepare-release-assets.mjs
       - uses: actions/upload-artifact@v4
         with:
@@ -52,7 +52,7 @@ jobs:
           python-version: '3.11'
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run package:win -- --publish never
+      - run: npm run package:win
       - run: node scripts/prepare-release-assets.mjs
       - uses: actions/upload-artifact@v4
         with:
