@@ -11,6 +11,17 @@ export const localProvider: Provider = {
   id: 'local',
   async stream(args: StreamArgs, emit: EmitFn) {
     const model = await resolveOrbitModelTag(args.model)
-    return streamLocal({ ...args, model }, emit, { modelMap: {}, label: 'local' })
+    try {
+      return await streamLocal({ ...args, model }, emit, { modelMap: {}, label: 'local' })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // A connection failure to loopback means the local runtime isn't running.
+      if (/fetch failed|ECONNREFUSED|econnrefused|network|refused/i.test(msg)) {
+        throw new Error(
+          "Can't reach the offline Orbit engine. Install the local runtime from ollama.com, make sure it's running, then try again."
+        )
+      }
+      throw err
+    }
   }
 }

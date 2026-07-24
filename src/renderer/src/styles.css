@@ -2352,6 +2352,42 @@ select {
   color: var(--text-faint);
   border-top: 1px solid var(--border);
 }
+.runtime-banner {
+  margin: 10px 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--grey-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.runtime-banner-text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.runtime-banner-text strong {
+  color: var(--text);
+}
+.runtime-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+.runtime-banner-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.runtime-banner-btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
 .orbit-progress {
   height: 6px;
   background: var(--grey-soft);

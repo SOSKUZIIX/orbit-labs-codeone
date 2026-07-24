@@ -12,7 +12,7 @@ export function Demo(): JSX.Element {
             <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
             <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
             <div className="ml-4 text-[11px] tracking-wide text-white/30">
-              CodeOne — orbit-labs/codeone
+              CodeOne — SOSKUZIIX/orbit-labs-codeone
             </div>
           </div>
 

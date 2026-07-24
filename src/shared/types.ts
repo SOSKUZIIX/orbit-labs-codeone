@@ -182,6 +182,8 @@ export interface OrbitStatus {
   ramGb: number
   /** True on Apple Silicon (Metal-accelerated) — runs larger tiers well. */
   accelerated: boolean
+  /** Is the local runtime (Ollama) installed and reachable? */
+  runtimeReachable: boolean
   /** The largest tier this machine can run (the recommended download). */
   idealTag: string
   idealLabel: string

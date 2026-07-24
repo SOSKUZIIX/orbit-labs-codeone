@@ -61,6 +61,19 @@ export function AgentPanel({
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState<Conversation[]>([])
   const historyRef = useRef<HTMLDivElement>(null)
+  const [runtimeDown, setRuntimeDown] = useState(false)
+
+  function checkRuntime(): void {
+    void window.orbit.orbit
+      .status()
+      .then((s) => setRuntimeDown(!s.runtimeReachable))
+      .catch(() => setRuntimeDown(true))
+  }
+  // Check on mount, and again whenever an error surfaces (e.g. a failed send).
+  useEffect(() => {
+    checkRuntime()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error])
 
   useEffect(() => {
     if (!historyOpen) return
@@ -167,6 +180,28 @@ export function AgentPanel({
           </button>
         </div>
       </div>
+      {runtimeDown && (
+        <div className="runtime-banner">
+          <div className="runtime-banner-text">
+            <strong>Offline engine not detected.</strong> Orbit 1.4 runs its AI
+            entirely on your machine via the Ollama runtime. Install it and start
+            it, then recheck.
+          </div>
+          <div className="runtime-banner-actions">
+            <button
+              className="runtime-banner-btn primary"
+              onClick={() =>
+                window.orbit.app.openExternal('https://ollama.com/download')
+              }
+            >
+              Install Ollama
+            </button>
+            <button className="runtime-banner-btn" onClick={checkRuntime}>
+              Recheck
+            </button>
+          </div>
+        </div>
+      )}
       {error && <div className="error-banner">{error}</div>}
       {empty ? (
         <div className="agent-empty">

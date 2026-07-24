@@ -71,6 +71,16 @@ function ollamaBase(): string {
   }
 }
 
+/** Is the local runtime (Ollama) up and reachable on loopback? */
+export async function isRuntimeReachable(): Promise<boolean> {
+  try {
+    const res = await safeFetch(`${ollamaBase()}/api/version`)
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 async function listPresentTags(): Promise<Set<string>> {
   try {
     const res = await safeFetch(`${ollamaBase()}/api/tags`)
@@ -115,12 +125,16 @@ export async function orbitStatus(): Promise<OrbitStatus> {
   const ram = systemRamGb()
   const accel = isAccelerated()
   const ideal = selectOrbitTier(ram, accel)
-  const present = await listPresentTags()
+  const [present, runtimeReachable] = await Promise.all([
+    listPresentTags(),
+    isRuntimeReachable()
+  ])
   const runnable = TIERS.filter((t) => ram >= minRamFor(t, accel))
   const resolvedTag = runnable.find((t) => present.has(t.tag))?.tag ?? ideal.tag
   return {
     ramGb: Math.round(ram),
     accelerated: accel,
+    runtimeReachable,
     idealTag: ideal.tag,
     idealLabel: ideal.label,
     idealSizeGb: ideal.sizeGb,
