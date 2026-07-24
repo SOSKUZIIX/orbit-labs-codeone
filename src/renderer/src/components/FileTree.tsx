@@ -57,6 +57,18 @@ export function FileTree({
   useEffect(() => {
     if (!menuOpen && !contextMenu) return
     function onDocClick(e: MouseEvent): void {
+      // Mousedown fires BEFORE click. Closing the context menu here on a press
+      // inside the menu unmounts its buttons before their onClick can run —
+      // which made Copy Path a no-op. Only presses on ENABLED menu buttons are
+      // deferred to their own onClick; disabled items and menu padding still
+      // dismiss (disabled controls swallow click, so deferring would leave the
+      // menu stuck open).
+      if (
+        e.target instanceof Element &&
+        e.target.closest('.tree-context-menu button:not([disabled])')
+      ) {
+        return
+      }
       if (
         wrapRef.current &&
         e.target instanceof Node &&
@@ -71,7 +83,19 @@ export function FileTree({
   }, [menuOpen, contextMenu])
 
   async function copyText(text: string): Promise<void> {
-    await navigator.clipboard.writeText(text)
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // Clipboard API can be unavailable/denied; fall back to execCommand.
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      ta.remove()
+    }
     setContextMenu(null)
   }
 

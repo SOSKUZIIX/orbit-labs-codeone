@@ -62,6 +62,10 @@ export function useChat(
   // Per-request timing state (request id → timestamps)
   const startedAtRef = useRef<Map<string, number>>(new Map())
   const firstTokenAtRef = useRef<Map<string, number>>(new Map())
+  // Throttle persistence during thinking streams: local models emit thousands
+  // of thinking-deltas per reply, and each onPersist rewrites the entire
+  // conversations store on disk.
+  const lastThinkPersistRef = useRef(0)
 
   const setConversation = useCallback((c: Conversation) => {
     setConversationState(c)
@@ -165,11 +169,17 @@ export function useChat(
       if (!last || last.role !== 'assistant') return
 
       if (ev.kind === 'thinking-delta') {
+        // Cap the kept thinking stream: it's a live progress view, not an
+        // archive — unbounded growth bloats both memory and the on-disk store.
         const next = patchLastAssistant(conv, {
-          thinking: (last.thinking ?? '') + ev.text
+          thinking: ((last.thinking ?? '') + ev.text).slice(-20000)
         })
         setConversation(next)
-        onPersist(next)
+        const now = Date.now()
+        if (now - lastThinkPersistRef.current > 1000) {
+          lastThinkPersistRef.current = now
+          onPersist(next)
+        }
       } else if (ev.kind === 'card') {
         const next = patchLastAssistant(conv, {
           cards: appendOrReplaceCard(last.cards, ev.card)

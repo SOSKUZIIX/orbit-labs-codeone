@@ -1,6 +1,67 @@
 import { promises as fs } from 'node:fs'
+import { spawn } from 'node:child_process'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { searchFiles } from './search'
+
+interface ShellResult {
+  exitCode: number
+  timedOut: boolean
+  stdout: string
+  stderr: string
+}
+
+/**
+ * Run a shell command with a REAL timeout: the child is spawned detached (its
+ * own process group on POSIX) and on timeout the whole group is killed —
+ * `exec`'s built-in timeout only signals the direct shell, orphaning grand-
+ * children like dev servers, which then hold their ports forever.
+ */
+function runShell(
+  command: string,
+  cwd: string,
+  timeoutMs: number
+): Promise<ShellResult> {
+  return new Promise((resolvePromise) => {
+    const isWin = process.platform === 'win32'
+    const child = isWin
+      ? spawn('cmd.exe', ['/d', '/s', '/c', command], { cwd, windowsHide: true })
+      : spawn('/bin/sh', ['-c', command], { cwd, detached: true })
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    const MAX = 4 * 1024 * 1024
+    child.stdout?.on('data', (d: Buffer) => {
+      if (stdout.length < MAX) stdout += d.toString()
+    })
+    child.stderr?.on('data', (d: Buffer) => {
+      if (stderr.length < MAX) stderr += d.toString()
+    })
+    const killTree = (): void => {
+      try {
+        if (!isWin && child.pid) process.kill(-child.pid, 'SIGKILL')
+        else if (child.pid) spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'])
+      } catch {
+        try {
+          child.kill('SIGKILL')
+        } catch {
+          /* already gone */
+        }
+      }
+    }
+    const timer = setTimeout(() => {
+      timedOut = true
+      killTree()
+    }, timeoutMs)
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      resolvePromise({ exitCode: 1, timedOut, stdout, stderr: stderr || err.message })
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      resolvePromise({ exitCode: code ?? (timedOut ? 124 : 1), timedOut, stdout, stderr })
+    })
+  })
+}
 
 export type ToolName =
   | 'read_file'
@@ -9,6 +70,7 @@ export type ToolName =
   | 'search_files'
   | 'delete_file'
   | 'apply_patch'
+  | 'run_command'
 
 export interface ToolEdit {
   path: string
@@ -57,6 +119,84 @@ function relForDisplay(workspaceRoot: string, abs: string): string {
 function clip(s: string, max = MAX_TOOL_OUTPUT): string {
   if (s.length <= max) return s
   return s.slice(0, max) + `\n…[truncated ${s.length - max} bytes]`
+}
+
+/** Tools that mutate the workspace or machine state. Callers enforce
+ *  plan-mode gating IN CODE against this list, not just in the prompt. */
+export const WRITE_TOOL_NAMES = new Set<string>([
+  'write_file',
+  'apply_patch',
+  'delete_file',
+  'run_command'
+])
+
+/**
+ * Commands the agent may never run, regardless of what the model asks for.
+ *
+ * HONESTY NOTE: this is a best-effort BACKSTOP against the model reaching for
+ * obviously catastrophic or exfiltrating commands — it is NOT a sandbox and
+ * cannot be one at the string level (interpreters like `node -e` / `python -c`
+ * can do anything and are essential dev tools, so they stay allowed). The
+ * command runs with the user's own privileges in the workspace, exactly like
+ * the in-app terminal. See docs/threat-model.md. Returns a human-readable
+ * reason, or null if the command is allowed.
+ */
+export function blockedCommandReason(command: string): string | null {
+  const c = command.toLowerCase()
+  // A separator class that survives quoting/substitution tricks: anything that
+  // is not part of a plain word means "start of a command token" (catches
+  // `/usr/bin/curl`, `\curl`, `"curl"`, `$(curl ...)`, backticks, pipes).
+  const SEP = String.raw`(?:^|[^a-z0-9_-])`
+  if (new RegExp(SEP + String.raw`sudo\b`).test(c)) {
+    return 'privilege escalation (sudo) is not allowed'
+  }
+  if (new RegExp(SEP + String.raw`(shutdown|reboot|halt|poweroff)\b`).test(c)) {
+    return 'system power commands are not allowed'
+  }
+  if (/\b(mkfs|diskutil\s+erase|fdisk|dd\s+if=|format\s+[a-z]:)/.test(c)) {
+    return 'disk-level commands are not allowed'
+  }
+  if (/:\s*\(\s*\)\s*\{.*\|.*&\s*\}\s*;?\s*:/.test(c)) return 'fork bomb'
+  // rm aimed at the filesystem root or the home directory — including glob
+  // variants (/*, ~/*, $HOME/*) and long flags (--recursive --force).
+  if (
+    /(^|[\s;|&])rm\s+(-{1,2}[a-z-]+\s+)*["']?(\/|~|\$home)["']?\/?\*?["']?(\s|$|;)/i.test(
+      command
+    )
+  ) {
+    return 'deleting the filesystem root or home directory is not allowed'
+  }
+  // `cd / && rm -rf *` style: changing to a root-ish dir then bulk-deleting.
+  if (/cd\s+["']?(\/|~|\$home)["']?\s*(&&|;)[\s\S]*\brm\s/i.test(command)) {
+    return 'changing to the filesystem root or home and deleting is not allowed'
+  }
+  // Windows catastrophic deletes / format (exec uses cmd.exe there).
+  if (/(^|[\s;|&])(del|erase)\s+(\/[a-z]\s+)*\/s\b/i.test(command)) {
+    return 'recursive delete via del /s is not allowed'
+  }
+  if (/(^|[\s;|&])(rd|rmdir)\s+\/s\b/i.test(command)) {
+    return 'recursive rmdir /s is not allowed'
+  }
+  // Network exfiltration primitives — this is an offline-first product; the
+  // agent must not move workspace data off the machine. Package managers
+  // (npm/pip/etc.) are allowed: dependency installs are a normal dev need.
+  if (
+    new RegExp(
+      SEP + String.raw`(curl|wget|nc|ncat|netcat|ssh|scp|sftp|rsync|ftp|telnet)\b`
+    ).test(c)
+  ) {
+    return 'network transfer commands are not allowed from the agent (use package managers like npm instead)'
+  }
+  if (/\/dev\/tcp\//.test(c)) return 'raw TCP redirection is not allowed'
+  // Windows download LOLBins + PowerShell web primitives.
+  if (
+    /\b(certutil|bitsadmin|start-bitstransfer|invoke-webrequest|invoke-restmethod|downloadfile|downloadstring|net\.webclient)\b/.test(
+      c
+    )
+  ) {
+    return 'network download commands are not allowed from the agent'
+  }
+  return null
 }
 
 export async function executeTool(
@@ -200,6 +340,30 @@ export async function executeTool(
             preview: h.preview
           })),
           totalHits: hits.length
+        }
+      }
+    }
+
+    case 'run_command': {
+      const command = String(args.command ?? '').trim()
+      if (!command) throw new Error('run_command requires "command"')
+      const blocked = blockedCommandReason(command)
+      if (blocked) {
+        throw new Error(`Command refused: ${blocked}`)
+      }
+      // Package installs legitimately take a while; everything else gets a
+      // tight leash so a hung command can't wedge the agent loop.
+      const isInstall = /^\s*(npm|pnpm|yarn|bun)\b[\s\S]*\b(install|ci|add|create)\b/.test(
+        command
+      )
+      const timeout = isInstall ? 600_000 : 120_000
+      const r = await runShell(command, workspaceRoot, timeout)
+      return {
+        output: {
+          exitCode: r.exitCode,
+          timedOut: r.timedOut,
+          stdout: clip(r.stdout, 8000),
+          stderr: clip(r.stderr, 4000)
         }
       }
     }
@@ -394,6 +558,25 @@ export const OPENAI_TOOLS = [
         required: ['query']
       }
     }
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'run_command',
+      description:
+        'Run a shell command in the workspace root and get its exit code, stdout, and stderr. Use for terminal work: creating folders, moving/deleting files, npm/yarn installs, running build or test scripts, git. Commands time out (2 min; 10 min for installs). Destructive system-level commands and network transfer tools are refused.',
+      parameters: {
+        type: 'object',
+        properties: {
+          command: {
+            type: 'string',
+            description:
+              'The shell command to run, e.g. "mkdir -p src/components" or "npm install react".'
+          }
+        },
+        required: ['command']
+      }
+    }
   }
 ]
 
@@ -410,7 +593,8 @@ CRITICAL — UI tools for the planning phase:
 
 CRITICAL — write-tool gating:
 - read_file, list_directory, and search_files are READ-ONLY and may be used at any time, including during the planning phase, to gather context.
-- write_file, apply_patch, and delete_file are WRITE TOOLS. You MUST NOT call them until the user has approved your plan via the propose_plan card (replying "Proceed") in the current conversation.
+- write_file, apply_patch, delete_file, and run_command are WRITE TOOLS. You MUST NOT call them until the user has approved your plan via the propose_plan card (replying "Proceed") in the current conversation.
+- run_command runs a real shell command in the workspace root — use it for terminal work (mkdir, mv, rm, npm install, build/test scripts, git). Prefer delete_file for single-file deletes; use run_command for everything else the terminal would do.
 - If the user replies "Cancel" to a plan card, acknowledge briefly and wait for their next instruction. Do not write anything.
 - For trivial changes (typo fixes, one-line tweaks, renaming a variable), you may skip ask_questions and propose_plan and edit immediately — but still announce what you'll do in 1–2 sentences first.
 

@@ -4,6 +4,7 @@ import { safeFetch } from '../net-guard'
 import {
   OPENAI_TOOLS,
   TOOL_USE_PROMPT,
+  WRITE_TOOL_NAMES,
   executeTool,
   type ToolEdit
 } from '../agent-tools'
@@ -287,6 +288,13 @@ export async function streamOpenAICompatible(
             displayed: true,
             note: 'The plan card with Cancel and Proceed buttons is now shown. End your turn — the user\'s decision will arrive as the next user message ("Proceed" or "Cancel").'
           })
+        } else if (args.mode === 'plan' && WRITE_TOOL_NAMES.has(call.name)) {
+          // Plan-mode gating enforced in CODE, not just prompt: no mutations
+          // until the user approves the plan.
+          resultText = JSON.stringify({
+            error:
+              'Blocked: you are in PLAN MODE. Present your plan with propose_plan and wait for the user to proceed before writing files or running commands.'
+          })
         } else {
           // Stream a small status line for fs tools so the user sees what's happening
           emit({
@@ -373,6 +381,10 @@ export function oneLineArgs(name: string, args: Record<string, unknown>): string
       return String(args.path ?? '')
     case 'search_files':
       return `"${String(args.query ?? '')}"`
+    case 'run_command': {
+      const c = String(args.command ?? '')
+      return c.length > 80 ? c.slice(0, 80) + '…' : c
+    }
     default:
       return ''
   }

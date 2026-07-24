@@ -1,12 +1,12 @@
 {
-  "latestVersion": "0.1.0-beta.2",
-  "downloadUrl": "https://github.com/SOSKUZIIX/orbit-labs-codeone/releases/download/v0.1.0-beta.2/CodeOne-mac.dmg",
+  "latestVersion": "0.1.0-beta.3",
+  "downloadUrl": "https://github.com/SOSKUZIIX/orbit-labs-codeone/releases/download/v0.1.0-beta.3/CodeOne-mac.dmg",
   "changelog": [
-    "Orbit 1.4 now actually creates and edits files in your workspace — no more pasting code from chat",
-    "Reliable offline tool use even on smaller models (larger context window + tolerant tool-call parsing)",
-    "Universal macOS build — one download runs natively on Apple Silicon and Intel",
-    "Fully offline / air-gapped — your code never leaves your machine",
-    "Automatically runs the most capable model your hardware can handle",
-    "Cloud providers (Claude, GPT, Gemini) are opt-in and off by default"
+    "Orbit 1.4 now reliably creates and edits real files in your workspace — no more code pasted in chat",
+    "New: the agent can use the terminal (mkdir, rm, npm install, builds, git) with safety guardrails",
+    "Pasted-code fallback: even if the model narrates, CodeOne saves the files for you (never overwriting existing ones)",
+    "Live streaming while the offline model works — no more frozen-looking replies",
+    "Fixed: Copy Path in the file explorer context menu",
+    "Fully offline / air-gapped — your code never leaves your machine"
   ]
 }

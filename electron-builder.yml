@@ -20,9 +20,13 @@ mac:
         - arm64
         - x64
   category: public.app-category.developer-tools
-  hardenedRuntime: false
+  hardenedRuntime: true
   gatekeeperAssess: false
-  identity: null
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Set in .env: CSC_IDENTITY_AUTO_DISCOVERY=true (default), or pin via CSC_NAME.
+  # Leave identity null to let electron-builder auto-pick from Keychain.
+afterSign: build/notarize.js
 win:
   target:
     - target: nsis

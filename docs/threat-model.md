@@ -113,6 +113,19 @@ a locally-run application and are stated plainly rather than papered over.
 - **OS / physical access, and supply chain.** CodeOne does not defend against a
   compromised OS, disk forensics on an unlocked machine, or a malicious
   dependency in its own build. Standard endpoint security applies.
+- **Agent terminal commands (`run_command`).** The agent can run shell commands
+  in the workspace with the user's own privileges — the same power as the
+  in-app terminal. A denylist refuses the obviously catastrophic
+  (sudo, disk tools, `rm` on `/` or `~`, recursive Windows deletes) and the
+  common network-transfer binaries (curl/wget/ssh/scp/…, PowerShell download
+  primitives), because the offline promise means the *agent* should not move
+  data off the machine. This is a best-effort backstop, **not a sandbox**:
+  general-purpose interpreters (node, python) remain allowed because
+  development requires them, and they can perform network I/O. The egress
+  guard (`net-guard`) covers the app's own processes, not children spawned by
+  commands. On a network-isolated machine (the intended air-gapped deployment)
+  this residual channel does not exist. Snapshot/undo covers file damage
+  within the workspace.
 
 ## What Orbit Labs can see
 

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Required for Electron with hardened runtime -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+
+  <!-- App needs to read user files (open folder, file tree) -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+
+  <!-- Outbound network for opt-in cloud AI providers (BYO key); the default
+       Orbit/Local engine only talks to a loopback runtime -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+
+  <!-- Inherit entitlements into child processes (Electron helpers) -->
+  <key>com.apple.security.inherit</key>
+  <true/>
+</dict>
+</plist>
