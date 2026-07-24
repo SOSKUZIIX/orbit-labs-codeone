@@ -92,7 +92,18 @@ export async function executeTool(
 
     case 'write_file': {
       const path = String(args.path ?? '')
-      const content = String(args.content ?? '')
+      // A weak model may hand back `content` as an object/array (e.g. for a JSON
+      // file) instead of a string. String()-coercing that writes the literal
+      // "[object Object]" to disk; serialize structured content as JSON instead.
+      const rawContent = args.content
+      const content =
+        typeof rawContent === 'string'
+          ? rawContent
+          : rawContent == null
+            ? ''
+            : typeof rawContent === 'object'
+              ? JSON.stringify(rawContent, null, 2)
+              : String(rawContent)
       if (!path) throw new Error('write_file requires "path"')
       const abs = resolvePath(workspaceRoot, path)
       let action: 'created' | 'modified' = 'created'

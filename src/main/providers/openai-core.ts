@@ -340,7 +340,7 @@ export async function streamOpenAICompatible(
   }
 }
 
-function dedupeEdits(edits: ToolEdit[]): ToolEdit[] {
+export function dedupeEdits(edits: ToolEdit[]): ToolEdit[] {
   // If the same path is created then modified, collapse to created.
   // If created then deleted, drop both.
   const byPath = new Map<string, ToolEdit['action']>()
@@ -359,7 +359,7 @@ function dedupeEdits(edits: ToolEdit[]): ToolEdit[] {
   return [...byPath.entries()].map(([path, action]) => ({ path, action }))
 }
 
-function oneLineArgs(name: string, args: Record<string, unknown>): string {
+export function oneLineArgs(name: string, args: Record<string, unknown>): string {
   switch (name) {
     case 'read_file':
     case 'list_directory':

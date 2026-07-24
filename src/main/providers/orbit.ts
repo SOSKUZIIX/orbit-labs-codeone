@@ -1,5 +1,5 @@
 import type { Provider, StreamArgs, EmitFn } from './types'
-import { streamLocal } from './local-runtime'
+import { streamOllamaNative } from './ollama-native'
 
 /**
  * "Orbit 1.4" — Orbit Labs' branded offline coding model. Runs entirely on the
@@ -18,6 +18,6 @@ const ORBIT_MODEL_MAP: Record<string, string> = {
 export const orbitProvider: Provider = {
   id: 'orbit',
   async stream(args: StreamArgs, emit: EmitFn) {
-    return streamLocal(args, emit, { modelMap: ORBIT_MODEL_MAP, label: 'orbit' })
+    return streamOllamaNative(args, emit, { modelMap: ORBIT_MODEL_MAP, label: 'orbit' })
   }
 }

@@ -1,7 +1,7 @@
-import type { StreamArgs, EmitFn } from './types'
-import { streamOpenAICompatible } from './openai-core'
-
 // Default loopback endpoint — Ollama's OpenAI-compatible chat-completions API.
+// The offline providers now drive Ollama's NATIVE /api/chat (see
+// ollama-native.ts) via localNativeEndpoint(); this URL is still the canonical
+// loopback origin that both endpoints are derived from.
 const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1/chat/completions'
 
 // Loopback hosts the offline providers may talk to. Node's URL parser returns
@@ -32,29 +32,17 @@ export function localEndpoint(): string {
 }
 
 /**
- * Stream from a fully-offline local runtime (Ollama by default, or any
- * llama.cpp / LM Studio server exposing the OpenAI-compatible chat-completions
- * API) over loopback. No API key, no network egress — the user's code never
- * leaves the machine.
- *
- * NOTE: agentic tool use needs a large context. Ollama's default num_ctx
- * (2048/4096) is far too small once the tool schema + tool-use prompt are
- * injected; run the server with OLLAMA_CONTEXT_LENGTH=32768. See
- * docs/offline-setup.md.
+ * Ollama's NATIVE chat endpoint (`/api/chat`), derived from the same
+ * loopback-enforced origin as {@link localEndpoint}. Unlike the OpenAI-compat
+ * `/v1` shim, the native endpoint honours a per-request `options.num_ctx`, which
+ * the offline agent needs so the tool schema is never silently truncated. The
+ * origin already passed the loopback check in localEndpoint(), preserving the
+ * air-gap invariant.
  */
-export function streamLocal(
-  args: StreamArgs,
-  emit: EmitFn,
-  opts: { modelMap: Record<string, string>; label: string }
-): Promise<void> {
-  const mapped = opts.modelMap[args.model] ?? args.model
-  return streamOpenAICompatible({ ...args, model: mapped }, emit, {
-    endpoint: localEndpoint(),
-    // Local runtimes ignore the bearer token; a placeholder keeps the shared
-    // OpenAI-compatible client happy.
-    apiKey: 'local',
-    // Ollama's OpenAI-compatible endpoint rejects parallel_tool_calls.
-    allowParallelToolCalls: false,
-    label: opts.label
-  })
+export function localNativeEndpoint(): string {
+  try {
+    return `${new URL(localEndpoint()).origin}/api/chat`
+  } catch {
+    return 'http://127.0.0.1:11434/api/chat'
+  }
 }
