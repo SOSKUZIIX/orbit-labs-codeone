@@ -194,6 +194,12 @@ export default function App({ license, onLicenseChange }: AppProps): JSX.Element
     setConversation(chat.conversation)
   }, [chat.conversation])
 
+  // Apply the chosen UI skin ('fluid' Apple-inspired design by default,
+  // 'classic' for the original look). The attribute scopes theme-fluid.css.
+  useEffect(() => {
+    document.documentElement.dataset.ui = settings.ui ?? 'fluid'
+  }, [settings.ui])
+
   useEffect(() => {
     ;(async () => {
       const s = await window.orbit.settings.get()
@@ -470,6 +476,20 @@ export default function App({ license, onLicenseChange }: AppProps): JSX.Element
       /* ignore */
     }
   }
+
+  // Watch the open workspace: any change on disk (agent tools, run_command,
+  // the in-app terminal, external editors) refreshes the Explorer immediately.
+  useEffect(() => {
+    if (!rootPath) return
+    void window.orbit.fs.watch(rootPath)
+    const off = window.orbit.fs.onChanged(() => {
+      void window.orbit.fs.readDir(rootPath).then(setTree).catch(() => undefined)
+    })
+    return () => {
+      off()
+      void window.orbit.fs.unwatch()
+    }
+  }, [rootPath])
 
   // When the agent emits a file-edits card on the latest assistant message,
   // refresh the file tree so newly created files become visible.

@@ -202,6 +202,15 @@ export function AgentPanel({
           </div>
         </div>
       )}
+      {!rootPath && (
+        <div className="runtime-banner">
+          <div className="runtime-banner-text">
+            <strong>No folder open.</strong> The agent can only create, edit,
+            and delete files inside an open workspace folder. Open one to
+            unlock file and terminal tools.
+          </div>
+        </div>
+      )}
       {error && <div className="error-banner">{error}</div>}
       {empty ? (
         <div className="agent-empty">

@@ -193,7 +193,53 @@ export function Settings({
           </button>
         </div>
         <div className="modal-body">
-          <h3 style={{ margin: '0 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--text-dim)' }}>
+            Appearance
+          </h3>
+          <div className="field">
+            <div className="row" style={{ gap: 8 }}>
+              {(
+                [
+                  { id: 'fluid', name: 'Fluid', sub: 'New Apple-inspired design' },
+                  { id: 'classic', name: 'Classic', sub: 'The original CodeOne look' }
+                ] as const
+              ).map((opt) => {
+                const active = (settings.ui ?? 'fluid') === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    className="ghost-btn"
+                    aria-pressed={active}
+                    style={{
+                      flex: 1,
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      borderColor: active ? 'var(--border-focus)' : undefined,
+                      background: active ? 'var(--accent-soft)' : undefined
+                    }}
+                    onClick={() => {
+                      void window.orbit.settings
+                        .set({ ui: opt.id })
+                        .then(onSettingsChange)
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: 'var(--text)' }}>
+                      {opt.name}
+                      {active ? ' ✓' : ''}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                      {opt.sub}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
+              Switches instantly — no restart needed.
+            </p>
+          </div>
+
+          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: 'var(--text-dim)' }}>
             License
           </h3>
           {license?.state === 'licensed' ? (
@@ -210,7 +256,7 @@ export function Settings({
             </div>
           ) : (
             <>
-              <p style={{ marginTop: 0, fontSize: 12, color: '#6b7280' }}>
+              <p style={{ marginTop: 0, fontSize: 12, color: 'var(--text-faint)' }}>
                 {license?.state === 'trial'
                   ? `Trial — ${license.trialDaysLeft} day${license.trialDaysLeft === 1 ? '' : 's'} left. Verified locally; nothing is sent anywhere.`
                   : 'Unlicensed. Enter a license key to activate — verified locally, no internet needed.'}
@@ -237,7 +283,7 @@ export function Settings({
             </>
           )}
 
-          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: 'var(--text-dim)' }}>
             Orbit engine
           </h3>
           {orbit ? (
@@ -249,7 +295,7 @@ export function Settings({
                   ? 'Apple Silicon (GPU-accelerated).'
                   : 'CPU-only (no GPU — larger models run slower).'}
               </p>
-              <p style={{ margin: '0 0 10px', fontSize: 12, color: '#6b7280' }}>
+              <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--text-faint)' }}>
                 {orbit.anyPresent
                   ? `Running the ${tierLabel(orbit.resolvedTag)} model` +
                     (orbit.idealPresent
@@ -266,7 +312,7 @@ export function Settings({
                         style={{ width: `${pull?.percent ?? 3}%` }}
                       />
                     </div>
-                    <p style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 6 }}>
                       {pull?.error
                         ? `Error: ${pull.error}`
                         : `${pull?.status ?? 'Downloading'}${
@@ -284,12 +330,12 @@ export function Settings({
                 ))}
             </div>
           ) : (
-            <p style={{ marginTop: 0, fontSize: 12, color: '#6b7280' }}>
+            <p style={{ marginTop: 0, fontSize: 12, color: 'var(--text-faint)' }}>
               Checking your hardware…
             </p>
           )}
 
-          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: 'var(--text-dim)' }}>
             Profile
           </h3>
           {profile ? (
@@ -324,12 +370,12 @@ export function Settings({
               )}
             </>
           ) : (
-            <p style={{ marginTop: 0, fontSize: 12, color: '#6b7280' }}>
+            <p style={{ marginTop: 0, fontSize: 12, color: 'var(--text-faint)' }}>
               Loading profile…
             </p>
           )}
 
-          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: 'var(--text-dim)' }}>
             Online providers
           </h3>
           <label className="cloud-toggle">
@@ -340,7 +386,7 @@ export function Settings({
             />
             <span>Allow cloud AI providers (Claude, GPT, Gemini)</span>
           </label>
-          <p style={{ marginTop: 6, fontSize: 12, color: '#6b7280' }}>
+          <p style={{ marginTop: 6, fontSize: 12, color: 'var(--text-faint)' }}>
             Off by default. When on, chats using these models — including any
             workspace files the agent reads — are sent to that provider's servers
             and leave your machine. The offline Orbit and Local engines are never
@@ -349,7 +395,7 @@ export function Settings({
 
           {!cloudEnabled && storedCloud.length > 0 && (
             <div className="field">
-              <p style={{ margin: '0 0 6px', fontSize: 12, color: '#6b7280' }}>
+              <p style={{ margin: '0 0 6px', fontSize: 12, color: 'var(--text-faint)' }}>
                 You still have saved API keys for {storedCloud.length} cloud
                 provider{storedCloud.length > 1 ? 's' : ''}. They stay encrypted
                 on your machine and are never used while cloud is off.
@@ -365,10 +411,10 @@ export function Settings({
 
           {cloudEnabled && (
             <>
-              <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+              <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: 'var(--text-dim)' }}>
                 API Keys
               </h3>
-              <p style={{ marginTop: 0, fontSize: 12, color: '#6b7280' }}>
+              <p style={{ marginTop: 0, fontSize: 12, color: 'var(--text-faint)' }}>
                 Stored locally and encrypted with your OS keychain when
                 available. Keys are sent only in requests to that provider.
               </p>
@@ -430,7 +476,7 @@ export function Settings({
             </>
           )}
 
-          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: '#9aa3b2' }}>
+          <h3 style={{ margin: '20px 0 8px', fontSize: 13, color: 'var(--text-dim)' }}>
             Generation
           </h3>
           <div className="field">

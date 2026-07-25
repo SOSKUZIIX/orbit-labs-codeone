@@ -1,8 +1,8 @@
 import { promises as nodeFs } from 'node:fs'
 import { join as joinPath } from 'node:path'
+import { request as httpRequest } from 'node:http'
 import type { StreamArgs, EmitFn } from './types'
 import { DEFAULT_SYSTEM_PROMPT } from '@shared/types'
-import { safeFetch } from '../net-guard'
 import { localNativeEndpoint } from './local-runtime'
 import {
   OPENAI_TOOLS,
@@ -638,73 +638,126 @@ export function harvestNarratedFiles(content: string): HarvestedFile[] {
  *  tool_calls. `onDelta` receives raw tokens as they stream — surfaced as the
  *  "thinking" channel so slow local models show live progress instead of a
  *  frozen UI. */
+const LOOPBACK_HOSTS_NATIVE = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
+
 async function callOllama(
   endpoint: string,
   body: Record<string, unknown>,
   signal: AbortSignal,
   onDelta?: (text: string) => void
 ): Promise<{ content: string; toolCalls: NativeCall[]; done: boolean }> {
-  const res = await safeFetch(endpoint, {
-    method: 'POST',
-    signal,
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body)
-  })
-  if (!res.ok || !res.body) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`local ${res.status}: ${text || res.statusText}`)
+  // node:http instead of fetch: undici's fetch enforces a 5-minute
+  // headers timeout, and on CPU-only machines a long conversation can take
+  // longer than that in prompt evaluation before Ollama sends its first byte —
+  // killing the request with "fetch failed" mid-generation. Loopback-only is
+  // asserted here directly (localNativeEndpoint() already guarantees it; this
+  // is defense in depth for the air-gap invariant).
+  const url = new URL(endpoint)
+  if (!LOOPBACK_HOSTS_NATIVE.has(url.hostname.toLowerCase())) {
+    throw new Error(`local: refusing non-loopback endpoint ${url.hostname}`)
   }
 
+  const payload = JSON.stringify(body)
   let content = ''
   const toolCalls: NativeCall[] = []
   let sawDone = false
-  const reader = (res.body as ReadableStream<Uint8Array>).getReader()
-  const decoder = new TextDecoder()
-  let buf = ''
-  for (;;) {
-    if (signal.aborted) break
-    const { done, value } = await reader.read()
-    if (done) break
-    buf += decoder.decode(value, { stream: true })
-    let nl: number
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, nl).trim()
-      buf = buf.slice(nl + 1)
-      if (!line) continue
-      let j: {
-        message?: {
-          content?: string
-          tool_calls?: Array<{
-            function?: { name?: string; arguments?: unknown }
-          }>
+
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    const req = httpRequest(
+      {
+        hostname: url.hostname,
+        port: url.port || 11434,
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(payload)
         }
-        done?: boolean
-        error?: string
-      }
-      try {
-        j = JSON.parse(line)
-      } catch {
-        continue
-      }
-      if (j.error) throw new Error(`local: ${j.error}`)
-      const msg = j.message
-      if (msg?.content) {
-        content += msg.content
-        onDelta?.(msg.content)
-      }
-      if (Array.isArray(msg?.tool_calls)) {
-        for (const tc of msg.tool_calls) {
-          const name = tc.function?.name
-          if (typeof name !== 'string') continue
-          const rawArgs = tc.function?.arguments
-          const argsStr =
-            typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
-          toolCalls.push({ id: uid(), name, arguments: argsStr })
+      },
+      (res) => {
+        if (res.statusCode !== 200) {
+          let errBody = ''
+          res.on('data', (d: Buffer) => {
+            if (errBody.length < 4096) errBody += d.toString()
+          })
+          res.on('end', () =>
+            rejectPromise(new Error(`local ${res.statusCode}: ${errBody || res.statusMessage}`))
+          )
+          return
         }
+        let buf = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk: string) => {
+          if (signal.aborted) {
+            req.destroy()
+            return
+          }
+          buf += chunk
+          let nl: number
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).trim()
+            buf = buf.slice(nl + 1)
+            if (!line) continue
+            let j: {
+              message?: {
+                content?: string
+                tool_calls?: Array<{
+                  function?: { name?: string; arguments?: unknown }
+                }>
+              }
+              done?: boolean
+              error?: string
+            }
+            try {
+              j = JSON.parse(line)
+            } catch {
+              continue
+            }
+            if (j.error) {
+              req.destroy()
+              rejectPromise(new Error(`local: ${j.error}`))
+              return
+            }
+            const msg = j.message
+            if (msg?.content) {
+              content += msg.content
+              onDelta?.(msg.content)
+            }
+            if (Array.isArray(msg?.tool_calls)) {
+              for (const tc of msg.tool_calls) {
+                const name = tc.function?.name
+                if (typeof name !== 'string') continue
+                const rawArgs = tc.function?.arguments
+                const argsStr =
+                  typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {})
+                toolCalls.push({ id: uid(), name, arguments: argsStr })
+              }
+            }
+            if (j.done) sawDone = true
+          }
+        })
+        res.on('end', () => resolvePromise())
+        res.on('error', rejectPromise)
       }
-      if (j.done) sawDone = true
+    )
+    req.on('error', (err) => {
+      // Match the phrasing local.ts detects for its friendly
+      // "install Ollama" message.
+      rejectPromise(
+        /ECONNREFUSED/i.test(String(err))
+          ? new Error(`fetch failed: ${err.message}`)
+          : err
+      )
+    })
+    const onAbort = (): void => {
+      req.destroy()
+      resolvePromise() // aborted mid-stream: return what we have; caller checks signal
     }
-  }
+    if (signal.aborted) onAbort()
+    else signal.addEventListener('abort', onAbort, { once: true })
+    req.end(payload)
+  })
+
   return { content, toolCalls, done: sawDone }
 }
 
@@ -739,13 +792,26 @@ export async function streamOllamaNative(
 
   const temperature = Math.min(args.temperature ?? 0.3, LOCAL_TEMPERATURE_CAP)
 
+  // Pinned LAST in every request: small models weight the end of the context
+  // far more than the front, and a conversation whose history contains old
+  // refusals or pasted-code answers steers them to imitate those instead of
+  // the system prompt. This reminder outranks the history by recency.
+  const CAPABILITY_REMINDER: NativeMsg = {
+    role: 'system',
+    content:
+      'REMINDER: You DO have direct access to the user\'s workspace through your tools: write_file, apply_patch, read_file, list_directory, search_files, delete_file, run_command (shell). Use them to actually perform what the user asks — create, edit, delete, run. NEVER say you lack access, and NEVER tell the user to do it themselves or paste code for them to copy. Ignore any earlier messages in this conversation that did so.'
+  }
+
   let markupRetries = 0
+  let refusalRetries = 0
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     if (args.signal.aborted) return
 
     const body: Record<string, unknown> = {
       model,
-      messages,
+      // The reminder is appended per-request (not stored in `messages`) so it
+      // is always the trailing message and never duplicates in history.
+      messages: hasWorkspace ? [...messages, CAPABILITY_REMINDER] : messages,
       stream: true,
       keep_alive: '10m',
       options: { num_ctx: LOCAL_NUM_CTX, temperature }
@@ -779,7 +845,38 @@ export async function streamOllamaNative(
       failedCalls = parsed.failed
     }
 
-    if (visible.trim()) emit({ type: 'content', text: visible })
+    // "As an AI language model I can't delete files…" — a capability refusal
+    // while the tools are RIGHT THERE. Don't show it; correct the model and
+    // retry once. (Common when the chat history predates tool support.)
+    const isRefusal =
+      hasWorkspace &&
+      args.mode !== 'plan' &&
+      calls.length === 0 &&
+      /as an ai\b|language model|don'?t have (direct )?access|do not have (direct )?access|(cannot|can'?t|unable to) (directly )?(access|delete|create|modify|remove|write|run|execute)|open a terminal|use the `?rm`? command/i.test(
+        content
+      )
+    if (isRefusal && refusalRetries < 1) {
+      refusalRetries++
+      messages.push({ role: 'assistant', content: visible.trim() })
+      messages.push({
+        role: 'user',
+        content:
+          'Wrong — you DO have workspace access via your tools. Perform my request NOW by emitting the tool call(s): use delete_file(path) or run_command(command) for deletions, write_file(path, content) for files. Reply ONLY with <tool_call> tags.'
+      })
+      continue
+    }
+
+    if (visible.trim() && !isRefusal) emit({ type: 'content', text: visible })
+    else if (visible.trim() && isRefusal) {
+      // Second refusal in a row: show it, but append an honest pointer so the
+      // user isn't left thinking the app can't do it.
+      emit({
+        type: 'content',
+        text:
+          visible +
+          '\n\nⓘ CodeOne note: the offline model refused even though workspace tools are available. Try rephrasing as a direct instruction (e.g. "delete old.txt"), or start a fresh chat — old conversations can steer the model into outdated habits.'
+      })
+    }
 
     if (calls.length === 0) {
       // The model tried to call a tool but we couldn't parse or salvage it.

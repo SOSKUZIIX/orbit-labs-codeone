@@ -1,0 +1,416 @@
+/* ============================================================================
+   CodeOne "Fluid" — the Apple-inspired UI.
+   Loaded AFTER styles.css; everything is scoped under [data-ui='fluid'] so the
+   Classic UI stays pixel-identical. Two layers:
+     1. Token redefinition (colors, type, radii, shadows) — restyles every
+        surface that uses the design tokens (which is nearly all of them).
+     2. Motion + material refinements on key surfaces: springy entries,
+        hover/press feedback, vibrancy (backdrop blur) on floating chrome.
+   ========================================================================== */
+
+/* ---------- 1. Tokens ---------- */
+:root[data-ui='fluid'] {
+  /* Layered near-black surfaces (Apple dark elevations) */
+  --bg: #0d0d10;
+  --bg-elev: #16161a;
+  --bg-elev-2: #1e1e24;
+  --bg-elev-3: #28282f;
+  --bg-deep: #060608;
+
+  /* Hairlines */
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-focus: rgba(10, 132, 255, 0.65);
+
+  /* Label hierarchy (Apple dark-mode label colors) */
+  --text: rgba(255, 255, 255, 0.96);
+  --text-dim: rgba(235, 235, 245, 0.64);
+  --text-faint: rgba(235, 235, 245, 0.42);
+  --text-mute: rgba(235, 235, 245, 0.28);
+
+  --grey-soft: rgba(255, 255, 255, 0.05);
+  --grey-mid: rgba(255, 255, 255, 0.09);
+  --grey-strong: rgba(255, 255, 255, 0.16);
+
+  /* Apple systemBlue accent */
+  --accent: #0a84ff;
+  --accent-2: #409cff;
+  --accent-soft: rgba(10, 132, 255, 0.16);
+
+  --danger: #ff453a;
+  --good: #30d158;
+  --warn: #ffd60a;
+
+  --user-bg: rgba(10, 132, 255, 0.14);
+  --code-bg: #0a0a0d;
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 2px 12px rgba(0, 0, 0, 0.35);
+
+  /* Continuous-curve radii */
+  --radius-sm: 8px;
+  --radius: 11px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* SF-style type */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'Helvetica Neue', 'Segoe UI', system-ui, sans-serif;
+
+  /* Motion vocabulary */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 160ms;
+  --dur: 260ms;
+  --dur-slow: 420ms;
+}
+
+[data-ui='fluid'] {
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- 2a. Interactive feedback (buttons, rows, tabs) ---------- */
+[data-ui='fluid'] button,
+[data-ui='fluid'] .tab,
+[data-ui='fluid'] .tree-row,
+[data-ui='fluid'] .activity-btn,
+[data-ui='fluid'] .history-item,
+[data-ui='fluid'] .folder-menu-item,
+[data-ui='fluid'] .model-picker-item,
+[data-ui='fluid'] .welcome-item,
+[data-ui='fluid'] .q-option,
+[data-ui='fluid'] .onboarding-option,
+[data-ui='fluid'] .restore-item,
+[data-ui='fluid'] .search-hit {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    transform var(--dur-fast) var(--ease-spring),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+[data-ui='fluid'] .ghost-btn:active,
+[data-ui='fluid'] .send-btn:active,
+[data-ui='fluid'] .primary-btn:active,
+[data-ui='fluid'] .icon-btn:active,
+[data-ui='fluid'] .ghost-icon:active,
+[data-ui='fluid'] .runtime-banner-btn:active,
+[data-ui='fluid'] .mode-btn:active,
+[data-ui='fluid'] .welcome-primary:active,
+[data-ui='fluid'] .composer-action:active {
+  transform: scale(0.96);
+}
+
+[data-ui='fluid'] .ghost-btn,
+[data-ui='fluid'] .icon-btn,
+[data-ui='fluid'] .runtime-banner-btn,
+[data-ui='fluid'] .mode-btn {
+  border-radius: var(--radius);
+}
+
+/* Filled primary actions: Apple blue, white label, soft glow on hover */
+[data-ui='fluid'] .send-btn,
+[data-ui='fluid'] .primary-btn,
+[data-ui='fluid'] .welcome-primary,
+[data-ui='fluid'] .runtime-banner-btn.primary {
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius);
+}
+[data-ui='fluid'] .send-btn:hover:not(:disabled),
+[data-ui='fluid'] .primary-btn:hover:not(:disabled),
+[data-ui='fluid'] .welcome-primary:hover,
+[data-ui='fluid'] .runtime-banner-btn.primary:hover {
+  background: var(--accent-2);
+  box-shadow: 0 4px 22px rgba(10, 132, 255, 0.35);
+}
+[data-ui='fluid'] .send-btn:disabled {
+  background: var(--grey-mid);
+  color: var(--text-faint);
+}
+
+/* Filled-accent controls: Classic's accent was near-WHITE, so these were
+   authored with near-black text (#050505) and white hover fills. Fluid's accent
+   is systemBlue, so that text/fill must flip to white/blue or it reads as dark
+   text on blue. `:root[...]` prefix keeps these winning on specificity, not on
+   stylesheet order. */
+:root[data-ui='fluid'] .mode-btn.active,
+:root[data-ui='fluid'] .composer-action.send,
+:root[data-ui='fluid'] .status-badge.beta,
+:root[data-ui='fluid'] .primary-btn.small,
+:root[data-ui='fluid'] .welcome-primary {
+  color: #ffffff;
+}
+:root[data-ui='fluid'] .composer-action.send:hover:not(:disabled),
+:root[data-ui='fluid'] .primary-btn.small:hover:not(:disabled),
+:root[data-ui='fluid'] .welcome-primary:hover,
+:root[data-ui='fluid'] .send-btn:hover:not(:disabled) {
+  background: var(--accent-2);
+  color: #ffffff;
+}
+:root[data-ui='fluid'] .composer-action.stop {
+  background: var(--danger);
+  color: #ffffff;
+}
+:root[data-ui='fluid'] .status-badge.online {
+  background: var(--warn);
+  color: #1a1400;
+}
+
+/* Apple focus ring */
+[data-ui='fluid'] :is(button, input, textarea, select, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3.5px rgba(10, 132, 255, 0.4);
+  border-color: var(--border-focus);
+}
+[data-ui='fluid'] input,
+[data-ui='fluid'] textarea,
+[data-ui='fluid'] select {
+  border-radius: var(--radius);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+/* ---------- 2b. Floating chrome: vibrancy (blur materials) ---------- */
+[data-ui='fluid'] .modal,
+[data-ui='fluid'] .onboarding-card,
+[data-ui='fluid'] .tour-card {
+  background: rgba(28, 28, 32, 0.82);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+}
+
+[data-ui='fluid'] .history-menu,
+[data-ui='fluid'] .folder-menu,
+[data-ui='fluid'] .tree-context-menu,
+[data-ui='fluid'] .model-picker-menu,
+[data-ui='fluid'] .restore-menu,
+[data-ui='fluid'] .update-popover {
+  background: rgba(34, 34, 38, 0.78);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5), 0 1px 6px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+[data-ui='fluid'] .modal-backdrop,
+[data-ui='fluid'] .onboarding-backdrop,
+[data-ui='fluid'] .tour-overlay {
+  background: rgba(0, 0, 0, 0.44);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: fluid-fade var(--dur) var(--ease-out) both;
+}
+
+/* ---------- 2c. Entry animations ---------- */
+@keyframes fluid-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fluid-modal-in {
+  from { opacity: 0; transform: scale(0.94) translateY(14px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes fluid-pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes fluid-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fluid-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+[data-ui='fluid'] .modal,
+[data-ui='fluid'] .onboarding-card,
+[data-ui='fluid'] .tour-card {
+  animation: fluid-modal-in var(--dur-slow) var(--ease-spring) both;
+}
+[data-ui='fluid'] .history-menu,
+[data-ui='fluid'] .folder-menu,
+[data-ui='fluid'] .model-picker-menu,
+[data-ui='fluid'] .restore-menu,
+[data-ui='fluid'] .update-popover {
+  transform-origin: top;
+  animation: fluid-pop var(--dur) var(--ease-spring) both;
+}
+[data-ui='fluid'] .tree-context-menu {
+  transform-origin: top left;
+  animation: fluid-pop var(--dur-fast) var(--ease-spring) both;
+}
+[data-ui='fluid'] .msg {
+  animation: fluid-rise var(--dur-slow) var(--ease-spring) both;
+}
+[data-ui='fluid'] .runtime-banner,
+[data-ui='fluid'] .error-banner {
+  animation: fluid-slide-down var(--dur) var(--ease-spring) both;
+  border-radius: var(--radius-lg);
+}
+[data-ui='fluid'] .card,
+[data-ui='fluid'] .question-card,
+[data-ui='fluid'] .plan-card,
+[data-ui='fluid'] .permission-card,
+[data-ui='fluid'] .todos-card,
+[data-ui='fluid'] .file-edits-card,
+[data-ui='fluid'] .run-action-card {
+  animation: fluid-rise var(--dur-slow) var(--ease-spring) both;
+  border-radius: var(--radius-lg);
+}
+
+/* ---------- 2d. Chat surfaces ---------- */
+[data-ui='fluid'] .user-msg {
+  background: var(--user-bg);
+  border: 1px solid rgba(10, 132, 255, 0.22);
+  border-radius: var(--radius-lg);
+}
+[data-ui='fluid'] .assistant-msg {
+  border-radius: var(--radius-lg);
+}
+[data-ui='fluid'] .cooking-indicator {
+  color: var(--accent-2);
+  text-shadow: 0 0 14px rgba(10, 132, 255, 0.6);
+  animation: fluid-glow 1.6s var(--ease-out) infinite alternate;
+}
+@keyframes fluid-glow {
+  from { opacity: 0.65; }
+  to { opacity: 1; }
+}
+[data-ui='fluid'] .thinking-block {
+  border-radius: var(--radius);
+}
+[data-ui='fluid'] .thinking-content {
+  border-radius: var(--radius);
+  animation: fluid-rise var(--dur) var(--ease-out) both;
+}
+[data-ui='fluid'] .orbit-progress {
+  border-radius: 99px;
+  background: var(--grey-soft);
+  overflow: hidden;
+}
+[data-ui='fluid'] .orbit-progress-bar {
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width var(--dur-slow) var(--ease-out);
+}
+[data-ui='fluid'] .queued-pill,
+[data-ui='fluid'] .status-badge,
+[data-ui='fluid'] .tag {
+  border-radius: 99px;
+}
+
+/* ---------- 2e. Workbench chrome ---------- */
+[data-ui='fluid'] .activity-bar {
+  background: var(--bg-deep);
+}
+[data-ui='fluid'] .activity-btn {
+  border-radius: var(--radius);
+}
+[data-ui='fluid'] .activity-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-2);
+}
+[data-ui='fluid'] .tree-row {
+  border-radius: var(--radius-sm);
+}
+[data-ui='fluid'] .tree-row:hover {
+  background: var(--grey-soft);
+}
+[data-ui='fluid'] .tree-row.active {
+  background: var(--accent-soft);
+}
+[data-ui='fluid'] .tab {
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+[data-ui='fluid'] .status-bar {
+  background: var(--bg-deep);
+  border-top: 1px solid var(--border);
+}
+[data-ui='fluid'] .panel-title {
+  letter-spacing: 0.08em;
+}
+[data-ui='fluid'] .resize-handle {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+[data-ui='fluid'] .resize-handle:hover {
+  background: var(--accent-soft);
+}
+
+/* Composer: rounded, glassy input surface with focus glow */
+[data-ui='fluid'] .agent-composer {
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid var(--border);
+  transition:
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur-slow) var(--ease-out),
+    background-color var(--dur) var(--ease-out);
+}
+[data-ui='fluid'] .agent-composer:focus-within {
+  border-color: rgba(10, 132, 255, 0.5);
+  box-shadow: 0 0 0 3.5px rgba(10, 132, 255, 0.18), 0 10px 34px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Welcome / empty states */
+[data-ui='fluid'] .welcome-logo,
+[data-ui='fluid'] .orbit-logo {
+  filter: drop-shadow(0 0 22px rgba(10, 132, 255, 0.35));
+}
+[data-ui='fluid'] .welcome-title {
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+[data-ui='fluid'] .welcome-item {
+  border-radius: var(--radius-lg);
+}
+[data-ui='fluid'] .agent-empty-title {
+  letter-spacing: -0.015em;
+}
+
+/* Scrollbars: thin, rounded, unobtrusive */
+[data-ui='fluid'] ::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+[data-ui='fluid'] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+[data-ui='fluid'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+[data-ui='fluid'] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Selection tint */
+[data-ui='fluid'] ::selection {
+  background: rgba(10, 132, 255, 0.35);
+}
+
+/* ---------- 2f. Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui='fluid'] *,
+  [data-ui='fluid'] *::before,
+  [data-ui='fluid'] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

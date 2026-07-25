@@ -108,6 +108,9 @@ export interface AppSettings {
   /** Opt-in gate for cloud providers (Claude/GPT/Gemini). Off by default —
    *  when off, only the offline Orbit/Local engines can be used. */
   cloudEnabled?: boolean
+  /** Which UI skin to use. 'fluid' is the Apple-inspired design (default);
+   *  'classic' is the original CodeOne look. */
+  ui?: 'fluid' | 'classic'
 }
 
 export const DEFAULT_SYSTEM_PROMPT = `You are CodeOne, an AI coding companion from Orbit Labs.

@@ -30,7 +30,9 @@ import {
   writeFile,
   importAttachment,
   recentFolders,
-  recordRecentFolder
+  recordRecentFolder,
+  watchWorkspace,
+  unwatchWorkspace
 } from './fs'
 import {
   startTerminal,
@@ -121,6 +123,19 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle(IPC.FsRecentFolders, async () => recentFolders())
   ipcMain.handle(IPC.FsRecordRecent, async (_e, path: string) => {
     await recordRecentFolder(path)
+    return true
+  })
+  ipcMain.handle(IPC.FsWatch, async (_e, root: string) => {
+    watchWorkspace(root, () => {
+      const window = getWindow()
+      if (window && !window.isDestroyed()) {
+        window.webContents.send(IPC.FsChanged)
+      }
+    })
+    return true
+  })
+  ipcMain.handle(IPC.FsUnwatch, async () => {
+    unwatchWorkspace()
     return true
   })
 

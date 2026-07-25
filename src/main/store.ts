@@ -10,7 +10,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultProvider: 'local',
   defaultModel: 'Orbit 1.4',
   temperature: 1,
-  cloudEnabled: false
+  cloudEnabled: false,
+  ui: 'fluid'
 }
 
 // Old prompts we replace on read so existing installs pick up the new default.

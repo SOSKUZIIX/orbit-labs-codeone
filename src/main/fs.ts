@@ -1,5 +1,5 @@
 import { dialog, BrowserWindow } from 'electron'
-import { promises as fs } from 'node:fs'
+import { promises as fs, watch, type FSWatcher } from 'node:fs'
 import { join, resolve, basename, sep, relative } from 'node:path'
 import type {
   FileNode,
@@ -27,6 +27,56 @@ const IGNORE = new Set([
 const MAX_ENTRIES_PER_DIR = 2000
 const MAX_FILE_BYTES = 4 * 1024 * 1024 // 4 MB
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024 // 12 MB
+
+// ---------- workspace watcher ----------
+// Notifies the renderer when anything inside the open workspace changes, so
+// the Explorer refreshes immediately — whether the change came from the agent's
+// tools, a run_command/terminal command, or an external editor.
+
+let activeWatcher: FSWatcher | null = null
+let watchDebounce: NodeJS.Timeout | null = null
+
+function isIgnoredFsEvent(filename: string | null): boolean {
+  if (!filename) return false
+  const parts = filename.split(/[\\/]/)
+  return parts.some((p) => IGNORE.has(p))
+}
+
+export function watchWorkspace(root: string, onChange: () => void): void {
+  unwatchWorkspace()
+  try {
+    // recursive fs.watch is supported on macOS and Windows. On platforms
+    // where it throws (Linux), fall back to watching the top level only —
+    // most agent activity creates files at or near the root.
+    let watcher: FSWatcher
+    try {
+      watcher = watch(root, { recursive: true }, (_ev, filename) => {
+        if (isIgnoredFsEvent(filename ? String(filename) : null)) return
+        if (watchDebounce) clearTimeout(watchDebounce)
+        watchDebounce = setTimeout(onChange, 250)
+      })
+    } catch {
+      watcher = watch(root, (_ev, filename) => {
+        if (isIgnoredFsEvent(filename ? String(filename) : null)) return
+        if (watchDebounce) clearTimeout(watchDebounce)
+        watchDebounce = setTimeout(onChange, 250)
+      })
+    }
+    watcher.on('error', () => unwatchWorkspace())
+    activeWatcher = watcher
+  } catch {
+    /* watching is best-effort; the card-based refresh still works */
+  }
+}
+
+export function unwatchWorkspace(): void {
+  if (watchDebounce) {
+    clearTimeout(watchDebounce)
+    watchDebounce = null
+  }
+  activeWatcher?.close()
+  activeWatcher = null
+}
 
 const IMAGE_EXTS: Record<string, string> = {
   png: 'image/png',

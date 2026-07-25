@@ -123,7 +123,15 @@ const api = {
     recentFolders: (): Promise<string[]> =>
       ipcRenderer.invoke(IPC.FsRecentFolders),
     recordRecent: (path: string): Promise<boolean> =>
-      ipcRenderer.invoke(IPC.FsRecordRecent, path)
+      ipcRenderer.invoke(IPC.FsRecordRecent, path),
+    watch: (root: string): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.FsWatch, root),
+    unwatch: (): Promise<boolean> => ipcRenderer.invoke(IPC.FsUnwatch),
+    onChanged: (handler: () => void): (() => void) => {
+      const listener = (): void => handler()
+      ipcRenderer.on(IPC.FsChanged, listener)
+      return () => ipcRenderer.removeListener(IPC.FsChanged, listener)
+    }
   },
   snapshots: {
     list: (path: string): Promise<FileSnapshot[]> =>

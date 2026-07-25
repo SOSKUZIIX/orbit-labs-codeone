@@ -29,7 +29,7 @@ export function Sidebar({
       </div>
       <div className="conv-list">
         {conversations.length === 0 ? (
-          <div style={{ padding: '12px 14px', color: '#6b7280', fontSize: 12 }}>
+          <div style={{ padding: '12px 14px', color: 'var(--text-faint)', fontSize: 12 }}>
             No conversations yet.
           </div>
         ) : (

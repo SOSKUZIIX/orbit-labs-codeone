@@ -2,11 +2,12 @@
   "latestVersion": "0.1.0-beta.3",
   "downloadUrl": "https://github.com/SOSKUZIIX/orbit-labs-codeone/releases/download/v0.1.0-beta.3/CodeOne-mac.dmg",
   "changelog": [
+    "All-new Fluid interface — an Apple-inspired dark design with fluid motion, depth and vibrancy (switch back to Classic anytime in Settings → Appearance)",
     "Orbit 1.4 now reliably creates and edits real files in your workspace — no more code pasted in chat",
     "New: the agent can use the terminal (mkdir, rm, npm install, builds, git) with safety guardrails",
+    "Files appear in the Explorer the instant they're created, by the agent or anything else",
     "Pasted-code fallback: even if the model narrates, CodeOne saves the files for you (never overwriting existing ones)",
     "Live streaming while the offline model works — no more frozen-looking replies",
-    "Fixed: Copy Path in the file explorer context menu",
     "Fully offline / air-gapped — your code never leaves your machine"
   ]
 }
